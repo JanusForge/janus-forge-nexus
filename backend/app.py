@@ -16,15 +16,19 @@ import aiohttp
 
 # Initialize FastAPI app
 app = FastAPI(title="Janus Forge API")
+origins = [
+    "https://janus-forge-nexus.vercel.app",
+    "http://localhost:3000",
+]
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Models
 class BroadcastRequest(BaseModel):
