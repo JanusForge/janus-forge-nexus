@@ -142,7 +142,6 @@ async def call_grok(prompt: str, session) -> str:
         
         # If all models fail, help debug
         print("🔧 DEBUG: All model attempts failed. Checking available models...")
-        await list_available_models()
         return "GROK: [Model configuration needed - checking available models...]"
                     
     except Exception as e:
