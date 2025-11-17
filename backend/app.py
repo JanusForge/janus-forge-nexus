@@ -1,3 +1,6 @@
+from database.setup import setup_database
+setup_database()
+
 from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
