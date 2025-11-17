@@ -235,7 +235,7 @@ function Contact() {
         <textarea placeholder="Your Message" />
         <button type="submit">Send Sparks</button>
       </form>
-      <p>Email: cassandraleighwilliamson@gmail.com | LinkedIn: /janusforge</p>
+      <p>Email: cassandraleighwilliamson@gmail.com</p>
     </div>
   );
 }
