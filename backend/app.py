@@ -154,6 +154,9 @@ async def call_grok(prompt: str, session) -> str:
         error_msg = "SuperGrok: All model attempts failed. Please check: 1) API key validity, 2) Model access permissions, 3) SuperGrok Business subscription status"
         print(f"🔧 DEBUG: {error_msg}")
         return error_msg
+
+        # If all models fail, help debug
+
                     
     except Exception as e:
         print(f"🔧 DEBUG: SuperGrok ERROR: {str(e)}")

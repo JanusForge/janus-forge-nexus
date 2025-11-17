@@ -411,7 +411,32 @@ const handleSendPrompt = () => {
     );
   }
 
+
   // --- MAIN APP RENDER ---
+
+// --- NEW DASHBOARD WRAPPER ---
+function DashboardWrapper() {
+  const { sessionId } = useParams();
+  return <Dashboard sessionIdFromUrl={sessionId} />;
+}
+
+// --- OTHER PAGE COMPONENTS ---
+function Contact() {
+  return (
+    <div className="contact-page">
+      <h2>Contact the Forge</h2>
+      <form>
+        <input type="email" placeholder="Your Email" />
+        <textarea placeholder="Your Message" />
+        <button type="submit">Send Sparks</button>
+      </form>
+      <p>Email: cassandraleighwilliamson@gmail.com</p>
+    </div>
+  );
+}
+
+// --- MAIN APP ROUTER ---
+function App() {
   return (
     <Router>
       <div className="App">
