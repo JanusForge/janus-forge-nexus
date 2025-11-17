@@ -8,3 +8,5 @@ deepseek-sdk
 requests
 aiohttp
 psycopg2-binary
+psycopg2-binary
+psycopg2-binary
