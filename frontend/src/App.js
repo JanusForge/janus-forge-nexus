@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Route, Routes, NavLink, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, NavLink, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
 
@@ -490,5 +490,7 @@ function App() {
     </Router>
   );
 }
+
+}  // ← ADD THIS LINE
 
 export default App;
