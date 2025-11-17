@@ -18,20 +18,14 @@ from typing import List, Dict, Optional
 import aiohttp
 
 # Initialize FastAPI app
-app = FastAPI(title="Janus Forge API")
-origins = [
-    "https://janus-forge-nexus.vercel.app",
-    "http://localhost:3000",
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Temporary - allows all domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # Models
 class BroadcastRequest(BaseModel):
