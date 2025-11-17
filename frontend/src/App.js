@@ -1,262 +1,467 @@
-import React, { useState, useEffect, useCallback, useReducer } from 'react';
-import { BrowserRouter as Router, Route, Routes, NavLink, useNavigate, useParams } from 'react-router-dom';
-import Joyride from 'react-joyride';
+import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Route, Routes, NavLink, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
-import logo from './logo.jpg'; // Assuming logo.jpg is in src/
 
 // --- CONFIGURATION ---
-const API_BASE_URL = process.env.REACT_APP_NEXUS_HUB_URL || 'http://localhost:8000/api/v1';
-const API_KEY = process.env.REACT_APP_NEXUS_API_KEY || 'test-key';
+const API_BASE_URL = process.env.REACT_APP_NEXUS_HUB_URL || 'https://janus-forge-nexus-production.up.railway.app/api/v1';
 const hubClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: { 'Authorization': `Bearer ${API_KEY}` }
 });
 
-// Steps for onboarding tour
-const TOUR_STEPS = [
-  { target: '.logo', content: 'Your Forge Emblem—Thesis to Synthesis.' },
-  { target: '.human-gate', content: 'Synthesize & Broadcast—Your Baton.' },
-  { target: '.response-grid', content: 'AI Columns: Compare, Converge, Conquer.' }
-];
-
-// --- DASHBOARD COMPONENT ---
-function Dashboard({ sessionIdFromUrl }) {
-  const [sessionId, setSessionId] = useState(sessionIdFromUrl || null);
-  const [sessionHistory, setSessionHistory] = useState([]); // This will hold the 'messages' array
+// --- MAIN APP COMPONENT ---
+function App() {
+  // --- STATE DECLARATIONS ---
+  const [status, setStatus] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [sessionHistory, setSessionHistory] = useState([]);
+  const [participants, setParticipants] = useState(['grok', 'gemini', 'deepseek']);
   const [prompt, setPrompt] = useState('');
-  const [status, setStatus] = useState('Idle. Ignite a black swan?');
-  const [runTour, setRunTour] = useState(true);
-  const [participants] = useState(['grok', 'gemini', 'deepseek']);
-  const navigate = useNavigate();
-  const [, forceUpdate] = useReducer(x => x + 1, 0); 
 
-  // API: Create New Session
-  const createNewSession = async () => {
-    try {
-      setStatus('Forging Session...');
-      const response = await hubClient.post('/broadcast', {
-        initial_prompt: 'Janus Forge: Initializing Black Swan Protocol.',
-        ai_participants: participants
-      });
-      const data = response.data;
-      setSessionId(data.session_id);
-      setStatus(`Session Forged: ${data.session_id}. Awaiting first poll.`);
-      navigate(`/session/${data.session_id}`);
-    } catch (error) {
-      console.error('Session error:', error);
-      setStatus('Error: Hub silent. Check backend (localhost:8000).');
+// Temporary backend diagnostic
+useEffect(() => {
+  console.log('🔍 Testing backend connectivity...');
+  
+  // Test if broadcast endpoint works
+  hubClient.get('/sessions')
+    .then(response => {
+      console.log('✅ /sessions endpoint working:', response.data);
+    })
+    .catch(error => {
+      console.log('❌ /sessions endpoint failed:', error.response?.status);
+    });
+    
+  // Test broadcast with a simple request
+  const testSessionId = 'test-' + Date.now();
+  hubClient.post('/broadcast', {
+    session_id: testSessionId,
+    ai_participants: ['gemini'], // Test with just Gemini first
+    initial_prompt: "Test connection"
+  })
+  .then(response => {
+    console.log('✅ /broadcast endpoint working:', response.data);
+  })
+  .catch(error => {
+    console.log('❌ /broadcast endpoint failed:', error.response?.data);
+  });
+}, []);
+
+
+  // --- PROMPT INPUT COMPONENT ---
+function PromptInput({ onSend, sessionId, isSending = false }) {
+  const [localPrompt, setLocalPrompt] = useState('');
+  const inputRef = useRef(null);
+
+  const handleSubmit = () => {
+    const trimmedPrompt = localPrompt.trim();
+    if (trimmedPrompt && sessionId && !isSending) {
+      onSend(trimmedPrompt);
+      setLocalPrompt('');
+      inputRef.current?.focus();
     }
   };
 
-  // API: Broadcast a new prompt
-  const handleBroadcast = async (e) => {
-    e.preventDefault();
-    if (!sessionId || !prompt) return;
-    setStatus('Broadcasting Flames...');
-    try {
-      await hubClient.post(`/broadcast`, { 
-        session_id: sessionId, 
-        moderator_prompt: prompt,
-        ai_participants: participants 
-      });
-      setPrompt('');
-    } catch (error) {
-      console.error('Broadcast error:', error);
-      setStatus('Error: Broadcast failed—check console/Network tab.');
-    }
-  };
-
-  // API: Poll for updates
-  const pollForUpdates = useCallback(async () => {
-    if (!sessionId) return;
-    try {
-      const response = await hubClient.get(`/session/${sessionId}`);
-      const session = response.data; // This is the JSON { session_id: "...", messages: [...] }
-
-      // *** BUG FIX: Look for 'messages', not 'history' ***
-      if (session.messages && JSON.stringify(session.messages) !== JSON.stringify(sessionHistory)) {
-        setSessionHistory(session.messages); // <-- Set state with 'messages'
-        setStatus('Cycle Forged. Human Gate: Synthesize & Direct?');
-        forceUpdate(); // Force a re-render
-      }
-    } catch (error) {
-      console.error('Poll error:', error);
-      if (error.response && error.response.status === 404) {
-        setStatus(`Error: Session ${sessionId} not found.`);
-        setSessionId(null);
-        navigate('/');
-      }
-    }
-  }, [sessionId, sessionHistory, navigate]);
-
-  // Initial load effect
   useEffect(() => {
-    if (sessionId) {
-      pollForUpdates();
-    }
-  }, [sessionId, pollForUpdates]);
-
-  // Polling timer
-  useEffect(() => {
-    if (sessionId) {
-      const interval = setInterval(pollForUpdates, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [sessionId, pollForUpdates]);
-
-  // *** THIS IS THE NEW, 100% CORRECTED FUNCTION ***
-  const getLastResponse = (aiName) => {
-    if (!sessionHistory || !Array.isArray(sessionHistory) || sessionHistory.length === 0) {
-      return null;
-    }
-    // Search from the end of the array to find the most recent entry for this AI
-    // *** BUG FIX: Check role === 'ai' AND ai_name === aiName ***
-    const lastResponse = sessionHistory.slice().reverse().find(entry => entry.role === 'ai' && entry.ai_name === aiName);
-
-    return lastResponse || null; // Return the full message object or null
-  };
+    inputRef.current?.focus();
+  }, [sessionId]);
 
   return (
-    <div className="dashboard-page">
-      <Joyride steps={TOUR_STEPS} run={runTour} continuous={true} showSkip={false} callback={(data) => data.status === 'finished' && setRunTour(false)} />
-      <header className="app-header">
-        <img src={logo} alt="Janus Forge Emblem" className="logo" />
-        <h1>Janus Forge Nexus</h1>
-        <p className="status">{status}</p>
-        {sessionId && <p>Session ID: {sessionId}</p>}
-      </header>
-      {!sessionId ? (
-        <button onClick={createNewSession} className="start-btn">Ignite New Black Swan Session</button>
-      ) : (
-        <>
-          <main className="response-grid">
-            {participants.map(aiName => {
-              const lastResponse = getLastResponse(aiName);
-              return (
-                <div key={aiName} className={`ai-column ${aiName}`} data-ai={aiName}>
-                  <h2>{aiName.toUpperCase()}</h2>
-                  <div className="ai-response-card">
-                    {/* This logic will now correctly find and display the content */}
-                    {lastResponse ? (
-                      <p>{lastResponse.content}</p>
-                    ) : (
-                      <p><i>Awaiting forge...</i></p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </main>
-          <footer className="human-gate">
-            <form onSubmit={handleBroadcast}>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Synthesize flames & broadcast directive..."
-              />
-              <button type="submit">Broadcast to Forge</button>
-              <button type="button" onClick={() => {/* Voice stub */}}>Speak Gate</button>
-            </form>
-          </footer>
-        </>
-      )}
+    <div style={{ 
+      display: 'flex', 
+      gap: '10px', 
+      alignItems: 'flex-start', // Changed to flex-start for textarea
+      marginBottom: '10px',
+      position: 'relative'
+    }}>
+      <textarea // CHANGED FROM input TO textarea
+        ref={inputRef}
+        value={localPrompt}
+        onChange={(e) => setLocalPrompt(e.target.value)}
+        placeholder={sessionId ? "Broadcast to AI ensemble..." : "Create a session first..."}
+        disabled={!sessionId || isSending}
+        style={{
+          flex: 1,
+          padding: '12px 16px',
+          border: `2px solid ${sessionId ? '#007bff' : '#6c757d'}`,
+          borderRadius: '8px',
+          fontSize: '16px',
+          outline: 'none',
+          minHeight: '120px', // Much taller for paragraphs
+          maxHeight: '300px', // Maximum height
+          backgroundColor: 'white',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          transition: 'all 0.2s ease',
+          opacity: sessionId ? 1 : 0.7,
+          resize: 'vertical', // Allow resizing
+          fontFamily: 'inherit',
+          lineHeight: '1.4'
+        }}
+        onKeyDown={(e) => { // Changed to onKeyDown for better control
+          if (e.key === 'Enter' && e.ctrlKey) { // Ctrl+Enter to send
+            handleSubmit();
+            e.preventDefault();
+          }
+        }}
+      />
+      
+      <button 
+        onClick={handleSubmit}
+        disabled={!sessionId || !localPrompt.trim() || isSending}
+        style={{
+          padding: '12px 24px',
+          backgroundColor: sessionId && localPrompt.trim() && !isSending ? '#28a745' : '#6c757d',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '16px',
+          fontWeight: '600',
+          cursor: sessionId && localPrompt.trim() && !isSending ? 'pointer' : 'not-allowed',
+          transition: 'all 0.2s ease',
+          minWidth: '140px',
+          opacity: sessionId && localPrompt.trim() && !isSending ? 1 : 0.6,
+          alignSelf: 'flex-start', // Align to top with textarea
+          marginTop: '12px'
+        }}
+      >
+        {isSending ? '🔄 Broadcasting...' : '🚀 Send to AI'}
+      </button>
     </div>
   );
 }
+  // --- HELPER FUNCTIONS ---
+  const getLastResponse = (aiName) => {
+    if (!sessionHistory || sessionHistory.length === 0) {
+      return { content: '🔄 Forge warming—awaiting first cycle.', key_takeaways: [] };
+    }
 
-// --- HISTORY PAGE COMPONENT ---
-function HistoryPage() {
-  const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+    const currentSession = sessionHistory[sessionHistory.length - 1];
 
-  useEffect(() => {
-    const fetchSessions = async () => {
-      try {
-        const response = await hubClient.get('/sessions');
-        const sessionList = (response.data && Array.isArray(response.data.sessions)) 
-          ? response.data.sessions 
-          : [];
-        setSessions(sessionList.reverse()); 
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching session list:", error);
-        setLoading(false);
-      }
+    if (!currentSession || !currentSession.messages) {
+      return { content: '❌ No messages in session', key_takeaways: [] };
+    }
+
+    const aiMessages = currentSession.messages
+      .filter(msg => msg.role === 'ai' && msg.ai_name === aiName)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    const latestResponse = aiMessages[0];
+
+    if (!latestResponse) {
+      return {
+        content: `❌ No ${aiName} response found in current session`,
+        key_takeaways: []
+      };
+    }
+
+    // Clean up AI name prefixes for display
+    const cleanContent = latestResponse.content.replace(/^(|GROK:|GEMINI:|DEEPSEEK:)\s*/, '');
+    
+    return {
+      content: cleanContent,
+      key_takeaways: latestResponse.key_takeaways || []
     };
-    fetchSessions();
-  }, []);
-
-  const loadSession = (sessionId) => {
-    navigate(`/session/${sessionId}`);
   };
 
-  if (loading) {
-    return <h2>Loading Session History...</h2>;
+  const handleNewSession = () => {
+    setStatus('Creating new session...');
+    const newSessionId = `session-${Date.now()}`;
+    
+    hubClient.post('/broadcast', {
+      session_id: newSessionId,
+      ai_participants: participants,
+      initial_prompt: "Session initialized - ready for prompts!"
+    })
+    .then(response => {
+      setSessionId(newSessionId);
+      setStatus('New session created! Ready for prompts.');
+      setSessionHistory([{ 
+        session_id: newSessionId, 
+        messages: response.data.responses || [] 
+      }]);
+    })
+    .catch(error => {
+      console.error('Session creation failed:', error);
+      setStatus('Failed to create session');
+    });
+  };
+
+const handleSendPrompt = () => {
+  if (!prompt.trim() || !sessionId) return;
+  
+  setStatus('Sending to AI ensemble...');
+  
+  hubClient.post('/broadcast', {
+    session_id: sessionId,
+    ai_participants: participants,
+    moderator_prompt: prompt
+  })
+  .then(response => {
+    const broadcastData = response.data;
+    console.log('✅ BROADCAST RESPONSE:', broadcastData);
+    
+    // Debug: Check each AI response
+    if (broadcastData.responses) {
+      broadcastData.responses.forEach((response, index) => {
+        console.log(`AI ${index + 1}:`, response.ai_name, '-', response.content.substring(0, 100));
+      });
+    }
+    
+    setSessionHistory(prev => {
+      const updated = [...prev];
+      const currentSession = updated[updated.length - 1];
+      if (currentSession && currentSession.session_id === sessionId) {
+        currentSession.messages = [
+          ...(currentSession.messages || []), 
+          ...broadcastData.responses
+        ];
+      }
+      return updated;
+    });
+    
+    setPrompt('');
+    setStatus(`AI synthesis complete! ${broadcastData.responses.length} responses received`);
+  })
+  .catch(error => {
+    console.error('❌ BROADCAST FAILED:', error);
+    console.error('❌ Error response:', error.response?.data);
+    setStatus('Broadcast failed - check console');
+  });
+};
+
+
+  // --- DASHBOARD COMPONENT ---
+  function Dashboard() {
+    console.log('🎯 Dashboard component is rendering!');
+
+    const grokResponse = getLastResponse('grok');
+    const geminiResponse = getLastResponse('gemini');
+    const deepseekResponse = getLastResponse('deepseek');
+
+    return (
+      <div style={{ padding: '20px', backgroundColor: '#f0f0f0', minHeight: '100vh' }}>
+        <h1 style={{ color: '#333' }}>🎯 Janus Forge Nexus - ACTIVE</h1>
+        <p style={{ color: '#333' }}>Dashboard is connected and ready for AI synthesis!</p>
+
+        {/* Session Controls */}
+        <div style={{ 
+          background: 'white', 
+          padding: '15px', 
+          margin: '10px', 
+          borderRadius: '8px',
+          border: '1px solid #ddd'
+        }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+            <button 
+              onClick={handleNewSession}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              🆕 New Session
+            </button>
+            
+            <PromptInput 
+              onSend={(promptText) => {
+                setPrompt(promptText);
+                handleSendPrompt();
+              }}
+              sessionId={sessionId}
+              isSending={status.includes('Sending') || status.includes('Broadcasting')}
+            />
+          </div>
+          
+          {sessionId && (
+            <p style={{ margin: 0, fontSize: '14px', color: '#666' }}>
+              <strong>Active Session:</strong> {sessionId}
+            </p>
+          )}
+        </div>
+
+        {/* AI Response Matrix */}
+        <div style={{ background: 'white', padding: '20px', margin: '10px', borderRadius: '8px' }}>
+          <h3 style={{ color: '#333', marginBottom: '15px' }}>AI Response Matrix:</h3>
+          <div style={{ display: 'flex', gap: '20px' }}>
+            {/* Grok Column */}
+            <div style={{ 
+              flex: 1, 
+              border: '2px solid #ff6b6b', 
+              padding: '15px', 
+              borderRadius: '8px',
+              backgroundColor: '#fff5f5',
+              minHeight: '200px'
+            }}>
+              <h4 style={{ color: '#d63031', margin: '0 0 10px 0' }}>🦄 Grok</h4>
+              <div style={{ color: '#333', fontSize: '14px', lineHeight: '1.4' }}>
+                {grokResponse.content}
+              </div>
+            </div>
+
+            {/* Gemini Column */}
+            <div style={{ 
+              flex: 1, 
+              border: '2px solid #74b9ff', 
+              padding: '15px', 
+              borderRadius: '8px',
+              backgroundColor: '#f0f8ff',
+              minHeight: '200px'
+            }}>
+              <h4 style={{ color: '#0984e3', margin: '0 0 10px 0' }}>🌀 Gemini</h4>
+              <div style={{ color: '#333', fontSize: '14px', lineHeight: '1.4' }}>
+                {geminiResponse.content}
+              </div>
+            </div>
+
+            {/* DeepSeek Column */}
+            <div style={{ 
+              flex: 1, 
+              border: '2px solid #00b894', 
+              padding: '15px', 
+              borderRadius: '8px',
+              backgroundColor: '#f0fff4',
+              minHeight: '200px'
+            }}>
+              <h4 style={{ color: '#00a085', margin: '0 0 10px 0' }}>🎯 DeepSeek</h4>
+              <div style={{ color: '#333', fontSize: '14px', lineHeight: '1.4' }}>
+                {deepseekResponse.content}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Status Information */}
+        <div style={{ 
+          background: '#e8f4fd', 
+          padding: '15px', 
+          margin: '10px', 
+          borderRadius: '8px',
+          border: '1px solid #74b9ff'
+        }}>
+          <p style={{ margin: 0, color: '#0984e3' }}>
+            <strong>Status:</strong> {status || (sessionHistory.length > 0 ? 
+              `Connected with ${sessionHistory.length} session(s)` : 
+              'Ready for new session')}
+          </p>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className="history-page">
-      <h2>Session History</h2>
-      <p>Click a session to load and review the conversation.</p>
-      <div className="session-list">
-        {sessions.length > 0 ? (
-          sessions
-            .filter(session => session && session.session_id) // Filter out bad data
-            .map((session, index) => (
-              // Use session_id for the key and click handler
-              <button key={session.session_id || index} onClick={() => loadSession(session.session_id)} className="session-item">
-                <strong>Session:</strong> {session.session_id} <br />
-                <strong>Last Active:</strong> {session.last_updated ? new Date(session.last_updated).toLocaleString() : 'N/A'}
-              </button>
-            ))
+  // --- HISTORY PAGE COMPONENT ---
+  function HistoryPage() {
+    const navigate = useNavigate();
+    const [sessions, setSessions] = useState([]);
+
+    useEffect(() => {
+      hubClient.get('/sessions')
+        .then(response => {
+          setSessions(response.data.sessions || []);
+        })
+        .catch(error => {
+          console.error('Failed to load sessions:', error);
+        });
+    }, []);
+
+    const handleSessionClick = (sessionId) => {
+      hubClient.get(`/session/${sessionId}`)
+        .then(response => {
+          const sessionData = response.data;
+          setSessionId(sessionId);
+          setSessionHistory([sessionData]);
+          setStatus('Session loaded!');
+          navigate('/');
+        })
+        .catch(error => {
+          console.error('Session load failed:', error);
+          setStatus('Failed to load session');
+        });
+    };
+
+    return (
+      <div style={{ padding: '20px' }}>
+        <h2>Session History</h2>
+        <p>Click a session to load and review the conversation.</p>
+        
+        {sessions.length === 0 ? (
+          <p>No sessions found.</p>
         ) : (
-          <p>No past sessions found.</p>
+          <div>
+            {sessions.map(session => (
+              <div key={session.session_id} style={{ 
+                padding: '10px', 
+                margin: '5px 0', 
+                border: '1px solid #ccc',
+                cursor: 'pointer'
+              }}
+              onClick={() => handleSessionClick(session.session_id)}>
+                <strong>Session:</strong> {session.session_id}<br/>
+                <strong>Title:</strong> {session.title}<br/>
+                <strong>Last Active:</strong> {new Date(session.last_updated).toLocaleString()}
+              </div>
+            ))}
+          </div>
         )}
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-// --- NEW DASHBOARD WRAPPER ---
-function DashboardWrapper() {
-  const { sessionId } = useParams();
-  return <Dashboard sessionIdFromUrl={sessionId} />;
-}
-
-// --- OTHER PAGE COMPONENTS ---
-function Contact() {
-  return (
-    <div className="contact-page">
-      <h2>Contact the Forge</h2>
-      <form>
-        <input type="email" placeholder="Your Email" />
-        <textarea placeholder="Your Message" />
-        <button type="submit">Send Sparks</button>
-      </form>
-      <p>Email: cassandraleighwilliamson@gmail.com | LinkedIn: /janusforge</p>
-    </div>
-  );
-}
-
-// --- MAIN APP ROUTER ---
-function App() {
+  // --- MAIN APP RENDER ---
   return (
     <Router>
-      <nav className="sticky-nav">
-        <NavLink to="/" className="nav-link">Dashboard</NavLink>
-        <NavLink to="/history" className="nav-link">History</NavLink>
-        <NavLink to="/contact" className="nav-link">Contact</NavLink>
-        <NavLink to="/docs" className="nav-link">Docs</NavLink>
-      </nav>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/history" element={<HistoryPage />} />
-        <Route path="/session/:sessionId" element={<DashboardWrapper />} /> 
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/docs" element={<h2>API Forge Guide</h2>} />
-      </Routes>
+      <div className="App">
+        <header style={{ 
+          padding: '10px 20px', 
+          borderBottom: '1px solid #ccc',
+          display: 'flex', 
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ margin: 0 }}>Janus Forge Nexus</h1>
+          </div>
+          
+          <nav>
+            <NavLink to="/" style={{ margin: '0 10px', textDecoration: 'none' }}>
+              Dashboard
+            </NavLink>
+            <NavLink to="/history" style={{ margin: '0 10px', textDecoration: 'none' }}>
+              History
+            </NavLink>
+            <NavLink to="/contact" style={{ margin: '0 10px', textDecoration: 'none' }}>
+              Contact
+            </NavLink>
+            <NavLink to="/docs" style={{ margin: '0 10px', textDecoration: 'none' }}>
+              Docs
+            </NavLink>
+          </nav>
+        </header>
+
+        {/* Status Bar */}
+        {status && (
+          <div style={{ 
+            padding: '5px 20px', 
+            backgroundColor: '#f0f0f0',
+            borderBottom: '1px solid #ddd'
+          }}>
+            {status}
+          </div>
+        )}
+
+        <main>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/contact" element={<div style={{ padding: '20px' }}>Contact Page - Coming Soon</div>} />
+            <Route path="/docs" element={<div style={{ padding: '20px' }}>Documentation - Coming Soon</div>} />
+          </Routes>
+        </main>
+      </div>
     </Router>
   );
 }
