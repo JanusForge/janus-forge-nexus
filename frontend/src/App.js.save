@@ -236,7 +236,7 @@ function Contact() {
         <button type="submit">Send Sparks</button>
       </form>
       {/* *** FIX: Updated email address *** */}
-      <p>Email: cassandraleighwilliamson@gmail.com | LinkedIn: /janusforge</p>
+      <p>Email: cassandraleighwilliamson@gmail.com </p>
     </div>
   );
 }
