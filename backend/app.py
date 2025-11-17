@@ -90,26 +90,26 @@ def generate_session_title(messages):
     return "AI Collaboration Session"
 
 async def call_grok(prompt: str, session) -> str:
-    """Call Grok API with SuperGrok Business access"""
+    """Call SuperGrok Business API"""
     try:
-        print(f"🔧 DEBUG: Calling Grok API (SuperGrok Business)")
+        print(f"🔧 DEBUG: Calling SuperGrok Business API")
         
         headers = {
             "Authorization": f"Bearer {MODEL_CONFIG['grok']['api_key']}",
             "Content-Type": "application/json"
         }
         
-        # Try common SuperGrok model names
+        # SuperGrok Business typically uses these models:
         supergrok_models = [
-            "grok-2-1212",      # Most likely
-            "grok-2",           # Alternative
-            "grok-beta",        # Fallback
-            "grok-2-latest",    # Some users report this
+            "grok-2-1212",           # Most common for SuperGrok
+            "grok-2",                # Alternative
+            "grok-beta",             # Some SuperGrok versions
+            "grok-2-latest",         # Latest version
         ]
         
         for model_name in supergrok_models:
             try:
-                print(f"🔧 DEBUG: Trying model: {model_name}")
+                print(f"🔧 DEBUG: Trying SuperGrok model: {model_name}")
                 
                 payload = {
                     "messages": [{"role": "user", "content": prompt}],
@@ -126,28 +126,38 @@ async def call_grok(prompt: str, session) -> str:
                         json=payload,
                         timeout=30
                     ) as response:
+                        
                         if response.status == 200:
                             data = await response.json()
                             grok_response = data["choices"][0]["message"]["content"]
-                            print(f"🔧 DEBUG: ✅ Success with model: {model_name}")
-                            print(f"🔧 DEBUG: Grok response: {grok_response[:100]}...")
+                            print(f"🔧 DEBUG: ✅ SuperGrok success with model: {model_name}")
+                            print(f"🔧 DEBUG: SuperGrok response length: {len(grok_response)}")
                             return f"GROK: {grok_response}"
+                            
+                        elif response.status == 404:
+                            print(f"🔧 DEBUG: Model {model_name} not available")
+                            continue
+                            
                         else:
                             error_text = await response.text()
-                            print(f"🔧 DEBUG: ❌ Model {model_name} failed: {error_text}")
+                            print(f"🔧 DEBUG: Model {model_name} failed: {response.status} - {error_text}")
+                            continue
                             
+            except asyncio.TimeoutError:
+                print(f"🔧 DEBUG: Model {model_name} timeout")
+                continue
             except Exception as e:
                 print(f"🔧 DEBUG: Model {model_name} error: {str(e)}")
                 continue
         
-        # If all models fail, help debug
-        print("🔧 DEBUG: All model attempts failed. Checking available models...")
-        await list_available_models()
-        return "GROK: [Model configuration needed - checking available models...]"
+        # If all models fail, provide helpful error
+        error_msg = "SuperGrok: All model attempts failed. Please check: 1) API key validity, 2) Model access permissions, 3) SuperGrok Business subscription status"
+        print(f"🔧 DEBUG: {error_msg}")
+        return error_msg
                     
     except Exception as e:
-        print(f"🔧 DEBUG: Grok ERROR: {str(e)}")
-        return f"GROK: Error - {str(e)}"
+        print(f"🔧 DEBUG: SuperGrok ERROR: {str(e)}")
+        return f"SuperGrok: Configuration Error - {str(e)}"
 
 
 async def call_gemini(prompt: str, session) -> str:
