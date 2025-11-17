@@ -4,7 +4,7 @@ import axios from 'axios';
 import './App.css';
 
 // --- CONFIGURATION ---
-const API_BASE_URL = process.env.REACT_APP_NEXUS_HUB_URL || 'https://janus-forge-nexus-production.up.railway.app/api/v1';
+const API_BASE_URL = "https://janus-forge-nexus-production.up.railway.app";
 const hubClient = axios.create({
   baseURL: API_BASE_URL,
 });
