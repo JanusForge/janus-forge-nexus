@@ -4,7 +4,15 @@ import os
 def setup_database():
     print("🚀 INITIATING GLOBAL CONVERSATION INFRASTRUCTURE...")
     
+    # Initialize conn to None to fix scope issue
+    conn = None
+    
     try:
+        # Check if DATABASE_URL exists
+        if 'DATABASE_URL' not in os.environ:
+            print("⚠️ DATABASE_URL not set - skipping database setup")
+            return
+            
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
         
@@ -36,7 +44,6 @@ def setup_database():
     except Exception as e:
         print(f"❌ Database setup failed: {e}")
     finally:
+        # Only close if conn was successfully created
         if conn:
             conn.close()
-
-# This function will be called from app.py
