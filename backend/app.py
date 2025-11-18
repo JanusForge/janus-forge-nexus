@@ -35,7 +35,7 @@ from typing import List, Dict, Optional
 import aiohttp
 
 # Initialize FastAPI app  ← ADD THIS LINE
-app = FastAPI(title="Janus Forge Nexus API")  ← ADD THIS LINE
+app = FastAPI(title="Janus Forge Nexus API")  # ADD THIS LINE
 
 # CORS middleware
 app.add_middleware(
