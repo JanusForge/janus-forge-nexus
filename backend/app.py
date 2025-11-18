@@ -2,7 +2,7 @@ from database.setup import setup_database
 setup_database()
 
 from dotenv import load_dotenv
-load_dotenv()  # Load environment variables from .env file
+load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +18,26 @@ from typing import List, Dict, Optional
 import aiohttp
 
 # Initialize FastAPI app
+app = FastAPI(title="Janus Forge Nexus API")
 
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Read the rest of your original app.py and append it
+import json
+from typing import List, Dict, Optional
+import aiohttp
+
+# Initialize FastAPI app  ← ADD THIS LINE
+app = FastAPI(title="Janus Forge Nexus API")  ← ADD THIS LINE
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Temporary - allows all domains
@@ -27,6 +46,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Models
 # Models
 class BroadcastRequest(BaseModel):
     session_id: Optional[str] = None
