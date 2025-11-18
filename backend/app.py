@@ -1,3 +1,4 @@
+import openai
 from database.setup import setup_database
 setup_database()
 
@@ -21,12 +22,14 @@ import aiohttp
 app = FastAPI(title="Janus Forge Nexus API")
 
 # CORS middleware
+# In backend/app.py - update CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://janusforge.ai",
         "https://www.janusforge.ai", 
         "https://janus-forge-nexus.vercel.app",
+        "https://janus-forge-nexus.onrender.com",
         "http://localhost:3000"
     ],
     allow_credentials=True,
@@ -54,11 +57,14 @@ class BroadcastResponse(BaseModel):
 
 # Initialize AI clients
 try:
-    # Grok client
-    groq_client = Groq(api_key=os.getenv('GROK_API_KEY'))
+    grok_client = openai.OpenAI(
+        api_key=os.getenv('GROK_API_KEY'),
+        base_url="https://api.x.ai/v1"
+    )
+    print("✅ Grok client initialized successfully")
 except Exception as e:
-    print(f"Grok client initialization failed: {e}")
-    groq_client = None
+    print(f"❌ Grok client initialization failed: {e}")
+    grok_client = None
 
 try:
     # Gemini client
