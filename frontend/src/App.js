@@ -33,7 +33,8 @@ function PromptInput({ onSend, sessionId, isSending = false }) {
       gap: '10px',
       alignItems: 'flex-start',
       marginBottom: '10px',
-      position: 'relative'
+      position: 'relative',
+      width: '100%'
     }}>
       <textarea
         ref={inputRef}
@@ -48,8 +49,9 @@ function PromptInput({ onSend, sessionId, isSending = false }) {
           borderRadius: '8px',
           fontSize: '16px',
           outline: 'none',
-          minHeight: '120px',
-          maxHeight: '300px',
+          minHeight: '150px',
+          maxHeight: '400px',
+          width: '100%',
           backgroundColor: 'white',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           transition: 'all 0.2s ease',
@@ -218,9 +220,33 @@ function Dashboard({ sessionIdFromUrl }) {
     });
   };
 
+  // Ethical check for prompts
+  const ethicalCheck = (prompt) => {
+    const harmfulPatterns = [
+      /harm|hurt|exploit|deceive|manipulate|cheat|steal/i,
+      /hate|stupid|inferior|because you are a|all you people are/i
+    ];
+    
+    return !harmfulPatterns.some(pattern => pattern.test(prompt));
+  };
+
   const grokResponse = getLastResponse('grok');
   const geminiResponse = getLastResponse('gemini');
   const deepseekResponse = getLastResponse('deepseek');
+
+  // Scrollable column styles
+  const scrollableColumnStyle = {
+    flex: 1,
+    border: '2px solid',
+    padding: '15px',
+    borderRadius: '8px',
+    minHeight: '200px',
+    maxHeight: '500px',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#cbd5e0 #f7fafc',
+  };
 
   return (
     <div style={{ padding: '20px', backgroundColor: '#f0f0f0', minHeight: '100vh' }}>
@@ -234,28 +260,31 @@ function Dashboard({ sessionIdFromUrl }) {
         borderRadius: '8px',
         border: '1px solid #ddd'
       }}>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
-          <button
-            onClick={handleNewSession}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            🆕 New Session
-          </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', width: '100%' }}>
+            <button
+              onClick={handleNewSession}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              🆕 New Session
+            </button>
 
-          <PromptInput
-            onSend={handleSendPrompt}
-            sessionId={sessionId}
-            isSending={status.includes('Sending') || status.includes('Broadcasting')}
-          />
+            <PromptInput
+              onSend={handleSendPrompt}
+              sessionId={sessionId}
+              isSending={status.includes('Sending') || status.includes('Broadcasting')}
+            />
+          </div>
         </div>
 
         {sessionId && (
@@ -267,45 +296,78 @@ function Dashboard({ sessionIdFromUrl }) {
 
       <div style={{ background: 'white', padding: '20px', margin: '10px', borderRadius: '8px' }}>
         <h3 style={{ color: '#333', marginBottom: '15px' }}>AI Response Matrix:</h3>
-        <div style={{ display: 'flex', gap: '20px' }}>
-          <div style={{
-            flex: 1,
-            border: '2px solid #ff6b6b',
-            padding: '15px',
-            borderRadius: '8px',
-            backgroundColor: '#fff5f5',
-            minHeight: '200px'
-          }}>
-            <h4 style={{ color: '#d63031', margin: '0 0 10px 0' }}>🦄 Grok</h4>
-            <div style={{ color: '#333', fontSize: '14px', lineHeight: '1.4' }}>
+        <div style={{ display: 'flex', gap: '20px', minHeight: '500px' }}>
+          {/* Grok Column */}
+          <div style={{...scrollableColumnStyle, borderColor: '#ff6b6b', backgroundColor: '#fff5f5'}} 
+               className="ai-column">
+            <h4 style={{ 
+              color: '#d63031', 
+              margin: '0 0 10px 0', 
+              position: 'sticky', 
+              top: 0, 
+              background: '#fff5f5', 
+              padding: '5px 0', 
+              zIndex: 1 
+            }}>
+              🦄 Grok
+            </h4>
+            <div style={{ 
+              color: '#333', 
+              fontSize: '14px', 
+              lineHeight: '1.4', 
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word'
+            }}>
               {grokResponse.content}
             </div>
           </div>
 
-          <div style={{
-            flex: 1,
-            border: '2px solid #74b9ff',
-            padding: '15px',
-            borderRadius: '8px',
-            backgroundColor: '#f0f8ff',
-            minHeight: '200px'
-          }}>
-            <h4 style={{ color: '#0984e3', margin: '0 0 10px 0' }}>🌀 Gemini</h4>
-            <div style={{ color: '#333', fontSize: '14px', lineHeight: '1.4' }}>
+          {/* Gemini Column */}
+          <div style={{...scrollableColumnStyle, borderColor: '#74b9ff', backgroundColor: '#f0f8ff'}} 
+               className="ai-column">
+            <h4 style={{ 
+              color: '#0984e3', 
+              margin: '0 0 10px 0', 
+              position: 'sticky', 
+              top: 0, 
+              background: '#f0f8ff', 
+              padding: '5px 0', 
+              zIndex: 1 
+            }}>
+              🌀 Gemini
+            </h4>
+            <div style={{ 
+              color: '#333', 
+              fontSize: '14px', 
+              lineHeight: '1.4', 
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word'
+            }}>
               {geminiResponse.content}
             </div>
           </div>
 
-          <div style={{
-            flex: 1,
-            border: '2px solid #00b894',
-            padding: '15px',
-            borderRadius: '8px',
-            backgroundColor: '#f0fff4',
-            minHeight: '200px'
-          }}>
-            <h4 style={{ color: '#00a085', margin: '0 0 10px 0' }}>🎯 DeepSeek</h4>
-            <div style={{ color: '#333', fontSize: '14px', lineHeight: '1.4' }}>
+          {/* DeepSeek Column */}
+          <div style={{...scrollableColumnStyle, borderColor: '#00b894', backgroundColor: '#f0fff4'}} 
+               className="ai-column">
+            <h4 style={{ 
+              color: '#00a085', 
+              margin: '0 0 10px 0', 
+              position: 'sticky', 
+              top: 0, 
+              background: '#f0fff4', 
+              padding: '5px 0', 
+              zIndex: 1 
+            }}>
+              🎯 DeepSeek
+            </h4>
+            <div style={{ 
+              color: '#333', 
+              fontSize: '14px', 
+              lineHeight: '1.4', 
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word'
+            }}>
               {deepseekResponse.content}
             </div>
           </div>
@@ -355,10 +417,23 @@ function HistoryPage() {
       });
   };
 
+  const exportSession = (sessionId) => {
+    const session = sessions.find(s => s.session_id === sessionId);
+    if (!session) return;
+
+    const dataStr = JSON.stringify(session, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `janus-forge-session-${sessionId}.json`;
+    link.click();
+  };
+
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: '20px', minHeight: '100vh', backgroundColor: '#f0f0f0' }}>
       <h2>Session History</h2>
-      <p>Click a session to load and review the conversation.</p>
+      <p>Click a session to load and review the conversation. Export to save sessions locally.</p>
 
       {sessions.length === 0 ? (
         <p>No sessions found.</p>
@@ -366,15 +441,42 @@ function HistoryPage() {
         <div>
           {sessions.map(session => (
             <div key={session.session_id} style={{
-              padding: '10px',
-              margin: '5px 0',
+              padding: '15px',
+              margin: '10px 0',
               border: '1px solid #ccc',
-              cursor: 'pointer'
+              borderRadius: '8px',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
             }}
-            onClick={() => handleSessionClick(session.session_id)}>
-              <strong>Session:</strong> {session.session_id}<br/>
-              <strong>Title:</strong> {session.title}<br/>
-              <strong>Last Active:</strong> {new Date(session.last_updated).toLocaleString()}
+            onClick={() => handleSessionClick(session.session_id)}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <strong>Session:</strong> {session.session_id}<br/>
+                  <strong>Title:</strong> {session.title}<br/>
+                  <strong>Last Active:</strong> {new Date(session.last_updated).toLocaleString()}<br/>
+                  <strong>Messages:</strong> {session.message_count || 'Unknown'}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    exportSession(session.session_id);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  💾 Export
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -401,23 +503,69 @@ function App() {
           borderBottom: '1px solid #ccc',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          backgroundColor: 'white',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 style={{ margin: 0 }}>Janus Forge Nexus</h1>
+            <h1 style={{ margin: 0, color: '#333' }}>Janus Forge Nexus</h1>
           </div>
 
           <nav>
-            <NavLink to="/" style={{ margin: '0 10px', textDecoration: 'none' }}>
+            <NavLink 
+              to="/" 
+              style={({ isActive }) => ({
+                margin: '0 10px', 
+                textDecoration: 'none',
+                color: isActive ? '#007bff' : '#666',
+                fontWeight: isActive ? '600' : '400',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                backgroundColor: isActive ? '#e8f4fd' : 'transparent'
+              })}
+            >
               Dashboard
             </NavLink>
-            <NavLink to="/history" style={{ margin: '0 10px', textDecoration: 'none' }}>
+            <NavLink 
+              to="/history" 
+              style={({ isActive }) => ({
+                margin: '0 10px', 
+                textDecoration: 'none',
+                color: isActive ? '#007bff' : '#666',
+                fontWeight: isActive ? '600' : '400',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                backgroundColor: isActive ? '#e8f4fd' : 'transparent'
+              })}
+            >
               History
             </NavLink>
-            <NavLink to="/contact" style={{ margin: '0 10px', textDecoration: 'none' }}>
+            <NavLink 
+              to="/contact" 
+              style={({ isActive }) => ({
+                margin: '0 10px', 
+                textDecoration: 'none',
+                color: isActive ? '#007bff' : '#666',
+                fontWeight: isActive ? '600' : '400',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                backgroundColor: isActive ? '#e8f4fd' : 'transparent'
+              })}
+            >
               Contact
             </NavLink>
-            <NavLink to="/docs" style={{ margin: '0 10px', textDecoration: 'none' }}>
+            <NavLink 
+              to="/docs" 
+              style={({ isActive }) => ({
+                margin: '0 10px', 
+                textDecoration: 'none',
+                color: isActive ? '#007bff' : '#666',
+                fontWeight: isActive ? '600' : '400',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                backgroundColor: isActive ? '#e8f4fd' : 'transparent'
+              })}
+            >
               Docs
             </NavLink>
           </nav>
@@ -425,9 +573,10 @@ function App() {
 
         {status && (
           <div style={{
-            padding: '5px 20px',
-            backgroundColor: '#f0f0f0',
-            borderBottom: '1px solid #ddd'
+            padding: '10px 20px',
+            backgroundColor: '#f8f9fa',
+            borderBottom: '1px solid #ddd',
+            color: '#495057'
           }}>
             {status}
           </div>
@@ -438,8 +587,16 @@ function App() {
             <Route path="/" element={<DashboardWrapper />} />
             <Route path="/session/:sessionId" element={<DashboardWrapper />} />
             <Route path="/history" element={<HistoryPage />} />
-            <Route path="/contact" element={<div style={{ padding: '20px' }}>Contact Page - Coming Soon</div>} />
-            <Route path="/docs" element={<div style={{ padding: '20px' }}>Documentation - Coming Soon</div>} />
+            <Route path="/contact" element={<div style={{ padding: '20px', minHeight: '100vh', backgroundColor: '#f0f0f0' }}>
+              <h2>Contact the Forge</h2>
+              <p>Email: cassandraleighwilliamson@gmail.com</p>
+              <p>Join us in building the future of AI collaboration.</p>
+            </div>} />
+            <Route path="/docs" element={<div style={{ padding: '20px', minHeight: '100vh', backgroundColor: '#f0f0f0' }}>
+              <h2>Documentation</h2>
+              <p>Janus Forge Nexus - Multi-AI Synthesis Platform</p>
+              <p>Version 1.0 - Operational with Grok, Gemini, and DeepSeek integration</p>
+            </div>} />
           </Routes>
         </main>
       </div>
