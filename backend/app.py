@@ -97,51 +97,55 @@ async def get_grok_response(prompt: str, context: str = "") -> str:
     except Exception as e:
         return f"Grok Error: {str(e)}"
 
-
 async def get_gemini_response(prompt: str, context: str = "") -> str:
     try:
         from google import genai
         from google.genai import types
         import os
+
+        api_key = os.environ.get("GEMINI_API_KEY")
+        print(f"🔑 Gemini API Key present: {bool(api_key)}")
         
-        client = genai.Client(
-            api_key=os.environ.get("GEMINI_API_KEY"),  # Note: GEMINI_API_KEY not GOOGLE_API_KEY
-        )
+        if not api_key:
+            return "Gemini Error: No API key found"
+
+        client = genai.Client(api_key=api_key)
 
         full_prompt = f"{context}\n\n{prompt}" if context else prompt
-        
+        print(f"📝 Gemini prompt: {full_prompt[:100]}...")
+
         contents = [
             types.Content(
                 role="user",
-                parts=[
-                    types.Part.from_text(text=full_prompt),
-                ],
+                parts=[types.Part.from_text(text=full_prompt)],
             ),
         ]
 
-        # Try different models
         models_to_try = [
-            "gemini-2.0-flash-exp",  # Latest flash model
-            "gemini-1.5-flash",      # Stable flash model  
-            "gemini-1.5-pro",        # Pro model
+            "gemini-2.0-flash-exp",
+            "gemini-1.5-flash", 
+            "gemini-1.5-pro",
+            "gemini-1.0-pro",  # Add this fallback
         ]
-        
+
         for model in models_to_try:
             try:
+                print(f"🔄 Trying Gemini model: {model}")
                 response = client.models.generate_content(
                     model=model,
                     contents=contents,
                 )
+                print(f"✅ Gemini {model} SUCCESS!")
                 return response.text
             except Exception as e:
-                print(f"Gemini model {model} failed: {e}")
-                continue
-        
-        return "Gemini Error: All models failed"
-        
-    except Exception as e:
-        return f"Gemini Configuration Error: {str(e)}"
+                print(f"❌ Gemini model {model} failed: {str(e)[:100]}")
 
+        return "Gemini Error: All models failed"
+
+    except Exception as e:
+        error_msg = f"Gemini Configuration Error: {str(e)}"
+        print(f"💥 {error_msg}")
+        return error_msg
 
 
 async def get_deepseek_response(prompt: str, context: str = "") -> str:
