@@ -99,53 +99,33 @@ async def get_grok_response(prompt: str, context: str = "") -> str:
 
 async def get_gemini_response(prompt: str, context: str = "") -> str:
     try:
-        from google import genai
-        from google.genai import types
+        import aiohttp
         import os
-
-        api_key = os.environ.get("GEMINI_API_KEY")
-        print(f"🔑 Gemini API Key present: {bool(api_key)}")
         
-        if not api_key:
-            return "Gemini Error: No API key found"
-
-        client = genai.Client(api_key=api_key)
-
+        api_key = os.getenv('GEMINI_API_KEY')
         full_prompt = f"{context}\n\n{prompt}" if context else prompt
-        print(f"📝 Gemini prompt: {full_prompt[:100]}...")
-
-        contents = [
-            types.Content(
-                role="user",
-                parts=[types.Part.from_text(text=full_prompt)],
-            ),
-        ]
-
-        models_to_try = [
-            "gemini-2.0-flash-exp",
-            "gemini-1.5-flash", 
-            "gemini-1.5-pro",
-            "gemini-1.0-pro",  # Add this fallback
-        ]
-
-        for model in models_to_try:
-            try:
-                print(f"🔄 Trying Gemini model: {model}")
-                response = client.models.generate_content(
-                    model=model,
-                    contents=contents,
-                )
-                print(f"✅ Gemini {model} SUCCESS!")
-                return response.text
-            except Exception as e:
-                print(f"❌ Gemini model {model} failed: {str(e)[:100]}")
-
-        return "Gemini Error: All models failed"
-
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={api_key}",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "contents": [{
+                        "parts": [{
+                            "text": full_prompt
+                        }]
+                    }]
+                }
+            ) as response:
+                data = await response.json()
+                if 'candidates' in data and data['candidates']:
+                    return data['candidates'][0]['content']['parts'][0]['text']
+                else:
+                    return f"Gemini Error: {data}"
+                    
     except Exception as e:
-        error_msg = f"Gemini Configuration Error: {str(e)}"
-        print(f"💥 {error_msg}")
-        return error_msg
+        return f"Gemini Error: {str(e)}"
+
 
 
 async def get_deepseek_response(prompt: str, context: str = "") -> str:
