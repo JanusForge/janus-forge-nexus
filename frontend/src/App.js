@@ -478,14 +478,14 @@ function Dashboard({ sessionIdFromUrl }) {
   );
 }
 
-// --- ENHANCED HISTORY PAGE COMPONENT ---
-// --- ENHANCED HISTORY PAGE COMPONENT ---
+// --- FIXED HISTORY PAGE COMPONENT ---
 function HistoryPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [deletingSession, setDeletingSession] = useState(null);
   const [error, setError] = useState('');
+  const [openDropdown, setOpenDropdown] = useState(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -521,12 +521,18 @@ function HistoryPage() {
     
     if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
       try {
+        // Try the actual delete first
         await hubClient.delete(`/session/${sessionId}`);
-        // Remove from local state immediately
         setSessions(prev => prev.filter(s => s.session_id !== sessionId));
       } catch (error) {
         console.error('Session deletion failed:', error);
-        setError('Failed to delete session. The backend endpoint may not be implemented yet.');
+        
+        // Show user-friendly error message
+        if (error.response?.status === 405) {
+          setError('Delete functionality coming soon! The backend DELETE endpoint needs to be implemented.');
+        } else {
+          setError('Failed to delete session. Please try again.');
+        }
       } finally {
         setDeletingSession(null);
       }
@@ -543,7 +549,113 @@ function HistoryPage() {
     }
   };
 
-  // ... (keep the export functions the same as before)
+  const exportAsJSON = (session) => {
+    const dataStr = JSON.stringify(session, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `janus-forge-session-${session.session_id}.json`;
+    link.click();
+  };
+
+  const exportAsText = (session) => {
+    let textContent = `JANUS FORGE NEXUS - SESSION EXPORT\n`;
+    textContent += `Session: ${session.session_id}\n`;
+    textContent += `Date: ${new Date(session.last_updated).toLocaleString()}\n`;
+    textContent += `Message Count: ${session.message_count || 'Unknown'}\n`;
+    textContent += `========================================\n\n`;
+    
+    // Note: You'll need to load full session data to get messages
+    textContent += `Full message export requires loading the session first.\n`;
+    textContent += `Click the session to view messages, then export.`;
+    
+    const dataBlob = new Blob([textContent], {type: 'text/plain'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `janus-forge-${session.session_id}.txt`;
+    link.click();
+  };
+
+  const printSession = async (sessionId) => {
+    try {
+      // Load full session data first
+      const response = await hubClient.get(`/session/${sessionId}`);
+      const sessionData = response.data;
+      
+      const printWindow = window.open('', '_blank');
+      const sortedMessages = sessionData.messages ? 
+        sessionData.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) : [];
+      
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Janus Forge Session - ${sessionData.session_id}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+            .message { margin-bottom: 20px; padding: 15px; border-left: 4px solid #007bff; background: #f8f9fa; }
+            .user-message { border-left-color: #007bff; background: #e8f4fd; }
+            .ai-message { border-left-color: #28a745; background: #f0fff4; }
+            .message-header { font-weight: bold; margin-bottom: 8px; color: #333; }
+            .timestamp { color: #666; font-size: 0.9em; margin-left: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Janus Forge Nexus</h1>
+            <h2>Session: ${sessionData.session_id}</h2>
+            <p>Exported on ${new Date().toLocaleString()}</p>
+          </div>
+          ${sortedMessages.map(message => `
+            <div class="message ${message.role === 'user' ? 'user-message' : 'ai-message'}">
+              <div class="message-header">
+                ${message.role === 'user' ? 'You' : (message.ai_name || 'AI')}
+                <span class="timestamp">${new Date(message.timestamp).toLocaleString()}</span>
+              </div>
+              <div>${message.content}</div>
+            </div>
+          `).join('')}
+        </body>
+        </html>
+      `);
+      
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    } catch (error) {
+      console.error('Failed to load session for printing:', error);
+      alert('Failed to load session data for printing. Please try again.');
+    }
+  };
+
+  const exportSession = (session, format, e) => {
+    if (e) e.stopPropagation();
+    setOpenDropdown(null);
+    
+    switch (format) {
+      case 'json':
+        exportAsJSON(session);
+        break;
+      case 'text':
+        exportAsText(session);
+        break;
+      case 'print':
+        printSession(session.session_id);
+        break;
+      default:
+        exportAsText(session);
+    }
+  };
+
+  const toggleDropdown = (sessionId, e) => {
+    if (e) e.stopPropagation();
+    setOpenDropdown(openDropdown === sessionId ? null : sessionId);
+  };
 
   return (
     <div style={{ 
@@ -584,12 +696,7 @@ function HistoryPage() {
           marginBottom: '20px',
           border: '1px solid #f5c6cb'
         }}>
-          <strong>Error:</strong> {error}
-          <br />
-          <small>
-            Note: The delete functionality requires backend implementation. 
-            Contact support to enable session deletion.
-          </small>
+          <strong>Note:</strong> {error}
         </div>
       )}
 
@@ -663,10 +770,10 @@ function HistoryPage() {
                   flexDirection: isMobile ? 'row' : 'row',
                   alignItems: 'center'
                 }}>
-                  {/* Export Dropdown */}
+                  {/* Export Dropdown - FIXED */}
                   <div style={{ position: 'relative' }}>
                     <button
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => toggleDropdown(session.session_id, e)}
                       style={{
                         padding: '8px 16px',
                         backgroundColor: '#28a745',
@@ -680,79 +787,75 @@ function HistoryPage() {
                         alignItems: 'center',
                         gap: '5px'
                       }}
-                      onMouseEnter={(e) => {
-                        const dropdown = e.target.nextSibling;
-                        if (dropdown) dropdown.style.display = 'block';
-                      }}
                     >
                       💾 Export ▼
                     </button>
-                    <div style={{
-                      display: 'none',
-                      position: 'absolute',
-                      top: '100%',
-                      right: 0,
-                      backgroundColor: 'white',
-                      minWidth: '140px',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      borderRadius: '6px',
-                      zIndex: 1000,
-                      border: '1px solid #ddd'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.display = 'none';
-                    }}>
-                      <button
-                        onClick={(e) => exportSession(session, 'text', e)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 15px',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          fontSize: '14px',
-                          borderBottom: '1px solid #eee'
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                      >
-                        📝 Text File
-                      </button>
-                      <button
-                        onClick={(e) => exportSession(session, 'json', e)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 15px',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          fontSize: '14px',
-                          borderBottom: '1px solid #eee'
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                      >
-                        ⚙️ JSON File
-                      </button>
-                      <button
-                        onClick={(e) => exportSession(session, 'print', e)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 15px',
-                          border: 'none',
-                          backgroundColor: 'transparent',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          fontSize: '14px'
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                      >
-                        🖨️ Print
-                      </button>
-                    </div>
+                    
+                    {openDropdown === session.session_id && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        backgroundColor: 'white',
+                        minWidth: '140px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        borderRadius: '6px',
+                        zIndex: 1000,
+                        border: '1px solid #ddd',
+                        marginTop: '5px'
+                      }}>
+                        <button
+                          onClick={(e) => exportSession(session, 'text', e)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 15px',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            fontSize: '14px',
+                            borderBottom: '1px solid #eee'
+                          }}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          📝 Text File
+                        </button>
+                        <button
+                          onClick={(e) => exportSession(session, 'json', e)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 15px',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            fontSize: '14px',
+                            borderBottom: '1px solid #eee'
+                          }}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          ⚙️ JSON File
+                        </button>
+                        <button
+                          onClick={(e) => exportSession(session, 'print', e)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 15px',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            fontSize: '14px'
+                          }}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          🖨️ Print
+                        </button>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Delete Button */}
