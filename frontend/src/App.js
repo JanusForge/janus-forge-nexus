@@ -645,42 +645,18 @@ function App() {
               gap: '15px',
               textAlign: isMobile ? 'center' : 'left'
             }}>
-              {/* Logo Placeholder - Replace with your actual logo */}
-              <div style={{
-                width: isMobile ? '50px' : '60px',
-                height: isMobile ? '50px' : '60px',
-                backgroundColor: '#000',
-                color: 'white',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '12px' : '14px',
-                textAlign: 'center',
-                lineHeight: '1.1',
-                border: '2px solid #333'
-              }}>
-                JANUS<br/>FORGE
-              </div>
-              
-              <div>
-                <h1 style={{ 
-                  margin: 0, 
-                  color: '#333',
-                  fontSize: isMobile ? '20px' : '24px',
-                  fontWeight: '700'
-                }}>
-                  Janus Forge Nexus
-                </h1>
-                <p style={{
-                  margin: '4px 0 0 0',
-                  color: '#666',
-                  fontSize: isMobile ? '14px' : '16px',
-                  fontStyle: 'italic'
-                }}>
-                  Thesis. Antithesis. Humanity
-                </p>
+              {/* In the main header */}
+<img 
+  src="/janus-forge-logo.jpg" 
+  alt="Janus Forge"
+  style={{
+    width: isMobile ? '50px' : '60px',
+    height: isMobile ? '50px' : '60px',
+    borderRadius: '8px',
+    objectFit: 'cover',
+    border: '2px solid #333'
+  }}
+/>
                 
                 {/* Brand Tags */}
                 <div style={{
