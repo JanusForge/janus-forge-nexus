@@ -106,47 +106,55 @@ async def get_gemini_response(prompt: str, context: str = "") -> str:
         if not api_key:
             return "Gemini Error: No API key found"
         
-        print(f"🔑 Gemini API Key: {api_key[:10]}...")  # Log first 10 chars for verification
+        full_prompt = f"{context}\n\n{prompt}" if context else prompt
         
-        # First, LIST available models to see what we can use
+        # Get available models and FILTER for chat models only
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}",
                 headers={"Content-Type": "application/json"}
             ) as response:
                 models_data = await response.json()
-                print(f"🔍 GEMINI MODELS RESPONSE: {models_data}")
                 
-                # If we can see models, try the first available one
-                if 'models' in models_data and models_data['models']:
-                    available_models = [m['name'] for m in models_data['models']]
-                    model_list = ", ".join(available_models)
-                    print(f"✅ AVAILABLE MODELS: {model_list}")
-                    
-                    # Try the first available model with a simple test
-                    first_model = available_models[0]
-                    test_prompt = "Hello! Please respond with 'Gemini working' and your model name."
-                    
-                    async with session.post(
-                        f"https://generativelanguage.googleapis.com/v1beta/{first_model}:generateContent?key={api_key}",
-                        headers={"Content-Type": "application/json"},
-                        json={
-                            "contents": [{
-                                "parts": [{"text": test_prompt}]
-                            }]
-                        }
-                    ) as gen_response:
-                        gen_data = await gen_response.json()
-                        print(f"🔍 GENERATION RESPONSE: {gen_data}")
-                        if 'candidates' in gen_data and gen_data['candidates']:
-                            return f"SUCCESS! Model: {first_model}, Response: {gen_data['candidates'][0]['content']['parts'][0]['text']}"
-                        else:
-                            return f"Generation failed: {gen_data}"
-                else:
-                    return f"Gemini Models Error: {models_data}"
+                # Filter for models that support generateContent (chat models)
+                chat_models = [
+                    model['name'] for model in models_data.get('models', [])
+                    if 'generateContent' in model.get('supportedGenerationMethods', [])
+                ]
+                
+                print(f"✅ CHAT MODELS AVAILABLE: {chat_models}")
+                
+                if not chat_models:
+                    return "Gemini Error: No chat models available"
+                
+                # Try the chat models in order
+                for model in chat_models[:3]:  # Try first 3 chat models
+                    try:
+                        print(f"🔄 Trying Gemini chat model: {model}")
+                        async with session.post(
+                            f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={api_key}",
+                            headers={"Content-Type": "application/json"},
+                            json={
+                                "contents": [{
+                                    "parts": [{"text": full_prompt}]
+                                }]
+                            }
+                        ) as gen_response:
+                            gen_data = await gen_response.json()
+                            if 'candidates' in gen_data and gen_data['candidates']:
+                                print(f"✅ Gemini SUCCESS with model: {model}")
+                                return gen_data['candidates'][0]['content']['parts'][0]['text']
+                            else:
+                                print(f"❌ Gemini model {model} failed: {gen_data}")
+                                continue
+                    except Exception as e:
+                        print(f"❌ Gemini model {model} error: {e}")
+                        continue
+                
+                return "Gemini Error: All chat models failed"
                     
     except Exception as e:
-        return f"Gemini Diagnostic Error: {str(e)}"
+        return f"Gemini Configuration Error: {str(e)}"
 
 
 
