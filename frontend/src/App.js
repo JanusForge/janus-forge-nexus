@@ -257,89 +257,14 @@ function Dashboard({ sessionIdFromUrl }) {
       maxWidth: '100%',
       overflowX: 'hidden'
     }}>
-      {/* Brand Header */}
-      <div style={{
-        background: 'white',
-        padding: isMobile ? '12px' : '20px',
-        margin: isMobile ? '5px' : '10px',
-        borderRadius: '8px',
-        border: '1px solid #ddd',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '8px' }}>
-          {/* Janus Forge Logo */}
-          <img 
-            src="/janus-forge-logo.jpg" 
-            alt="Janus Forge"
-            style={{
-              width: isMobile ? '50px' : '60px',
-              height: isMobile ? '50px' : '60px',
-              borderRadius: '8px',
-              objectFit: 'cover',
-              border: '2px solid #333'
-            }}
-          />
-          <div>
-            <h1 style={{ 
-              color: '#333', 
-              margin: '0 0 4px 0',
-              fontSize: isMobile ? '20px' : '24px',
-              fontWeight: '700'
-            }}>Janus Forge Nexus</h1>
-            <p style={{ 
-              color: '#666', 
-              margin: 0,
-              fontSize: isMobile ? '14px' : '16px',
-              fontStyle: 'italic'
-            }}>Thesis. Antithesis. Humanity</p>
-          </div>
-        </div>
-        <div style={{
-          display: 'flex',
-          gap: '15px',
-          marginTop: '10px',
-          flexWrap: 'wrap'
-        }}>
-          <span style={{
-            padding: '4px 8px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '4px',
-            fontSize: '12px',
-            color: '#495057',
-            border: '1px solid #dee2e6'
-          }}>
-            ACCELERATORS, LLC
-          </span>
-          <span style={{
-            padding: '4px 8px',
-            backgroundColor: '#fff3cd',
-            borderRadius: '4px',
-            fontSize: '12px',
-            color: '#856404',
-            border: '1px solid #ffeaa7'
-          }}>
-            VETERAN-OWNED
-          </span>
-          <span style={{
-            padding: '4px 8px',
-            backgroundColor: '#d1ecf1',
-            borderRadius: '4px',
-            fontSize: '12px',
-            color: '#0c5460',
-            border: '1px solid #bee5eb'
-          }}>
-            synthesis
-          </span>
-        </div>
-      </div>
-
-      {/* Session Controls */}
+      {/* Session Controls - Now the main content area */}
       <div style={{
         background: 'white',
         padding: isMobile ? '12px' : '15px',
         margin: isMobile ? '5px' : '10px',
         borderRadius: '8px',
-        border: '1px solid #ddd'
+        border: '1px solid #ddd',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
       }}>
         {!sessionId ? (
           <div style={{ textAlign: 'center' }}>
@@ -699,106 +624,166 @@ function App() {
   return (
     <Router>
       <div className="App">
+        {/* Single Unified Header */}
         <header style={{
-          padding: isMobile ? '8px 15px' : '10px 20px',
+          padding: isMobile ? '15px' : '20px',
           borderBottom: '1px solid #ccc',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
           backgroundColor: 'white',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? '10px' : '0'
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            {/* Janus Forge Logo */}
-            <img 
-              src="/janus-forge-logo.jpg" 
-              alt="Janus Forge"
-              style={{
-                width: isMobile ? '40px' : '50px',
-                height: isMobile ? '40px' : '50px',
-                borderRadius: '6px',
-                objectFit: 'cover',
-                border: '2px solid #333'
-              }}
-            />
-            
-            <div>
-              <h1 style={{ 
-                margin: 0, 
-                color: '#333',
-                fontSize: isMobile ? '18px' : '24px',
-                fontWeight: '700'
-              }}>
-                Janus Forge Nexus
-              </h1>
-              <p style={{
-                margin: 0,
-                color: '#666',
-                fontSize: isMobile ? '12px' : '14px',
-                fontStyle: 'italic'
-              }}>
-                Multi-AI Conversation Platform
-              </p>
-            </div>
-          </div>
-
-          <nav style={{
+          <div style={{
             display: 'flex',
-            gap: isMobile ? '5px' : '10px',
-            flexWrap: 'wrap',
-            justifyContent: isMobile ? 'center' : 'flex-end'
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: isMobile ? '15px' : '0'
           }}>
-            <NavLink 
-              to="/" 
-              style={({ isActive }) => ({
-                margin: '0 5px', 
-                textDecoration: 'none',
-                color: isActive ? '#007bff' : '#666',
-                fontWeight: isActive ? '600' : '400',
-                padding: '5px 10px',
-                borderRadius: '4px',
-                backgroundColor: isActive ? '#e8f4fd' : 'transparent',
-                fontSize: isMobile ? '14px' : '16px',
-                whiteSpace: 'nowrap'
-              })}
-            >
-              Dashboard
-            </NavLink>
-            <NavLink 
-              to="/history" 
-              style={({ isActive }) => ({
-                margin: '0 5px', 
-                textDecoration: 'none',
-                color: isActive ? '#007bff' : '#666',
-                fontWeight: isActive ? '600' : '400',
-                padding: '5px 10px',
-                borderRadius: '4px',
-                backgroundColor: isActive ? '#e8f4fd' : 'transparent',
-                fontSize: isMobile ? '14px' : '16px',
-                whiteSpace: 'nowrap'
-              })}
-            >
-              History
-            </NavLink>
-            <NavLink 
-              to="/contact" 
-              style={({ isActive }) => ({
-                margin: '0 5px', 
-                textDecoration: 'none',
-                color: isActive ? '#007bff' : '#666',
-                fontWeight: isActive ? '600' : '400',
-                padding: '5px 10px',
-                borderRadius: '4px',
-                backgroundColor: isActive ? '#e8f4fd' : 'transparent',
-                fontSize: isMobile ? '14px' : '16px',
-                whiteSpace: 'nowrap'
-              })}
-            >
-              Contact
-            </NavLink>
-          </nav>
+            {/* Brand Section */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '15px',
+              textAlign: isMobile ? 'center' : 'left'
+            }}>
+              {/* Logo Placeholder - Replace with your actual logo */}
+              <div style={{
+                width: isMobile ? '50px' : '60px',
+                height: isMobile ? '50px' : '60px',
+                backgroundColor: '#000',
+                color: 'white',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '12px' : '14px',
+                textAlign: 'center',
+                lineHeight: '1.1',
+                border: '2px solid #333'
+              }}>
+                JANUS<br/>FORGE
+              </div>
+              
+              <div>
+                <h1 style={{ 
+                  margin: 0, 
+                  color: '#333',
+                  fontSize: isMobile ? '20px' : '24px',
+                  fontWeight: '700'
+                }}>
+                  Janus Forge Nexus
+                </h1>
+                <p style={{
+                  margin: '4px 0 0 0',
+                  color: '#666',
+                  fontSize: isMobile ? '14px' : '16px',
+                  fontStyle: 'italic'
+                }}>
+                  Thesis. Antithesis. Humanity
+                </p>
+                
+                {/* Brand Tags */}
+                <div style={{
+                  display: 'flex',
+                  gap: '10px',
+                  marginTop: '8px',
+                  flexWrap: 'wrap',
+                  justifyContent: isMobile ? 'center' : 'flex-start'
+                }}>
+                  <span style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#495057',
+                    border: '1px solid #dee2e6'
+                  }}>
+                    ACCELERATORS, LLC
+                  </span>
+                  <span style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#fff3cd',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#856404',
+                    border: '1px solid #ffeaa7'
+                  }}>
+                    VETERAN-OWNED
+                  </span>
+                  <span style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#d1ecf1',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#0c5460',
+                    border: '1px solid #bee5eb'
+                  }}>
+                    synthesis
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <nav style={{
+              display: 'flex',
+              gap: isMobile ? '10px' : '15px',
+              flexWrap: 'wrap',
+              justifyContent: isMobile ? 'center' : 'flex-end'
+            }}>
+              <NavLink 
+                to="/" 
+                style={({ isActive }) => ({
+                  textDecoration: 'none',
+                  color: isActive ? '#007bff' : '#666',
+                  fontWeight: isActive ? '600' : '400',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  backgroundColor: isActive ? '#e8f4fd' : 'transparent',
+                  fontSize: isMobile ? '14px' : '16px',
+                  whiteSpace: 'nowrap',
+                  border: isActive ? '1px solid #007bff' : '1px solid transparent',
+                  transition: 'all 0.2s ease'
+                })}
+              >
+                Dashboard
+              </NavLink>
+              <NavLink 
+                to="/history" 
+                style={({ isActive }) => ({
+                  textDecoration: 'none',
+                  color: isActive ? '#007bff' : '#666',
+                  fontWeight: isActive ? '600' : '400',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  backgroundColor: isActive ? '#e8f4fd' : 'transparent',
+                  fontSize: isMobile ? '14px' : '16px',
+                  whiteSpace: 'nowrap',
+                  border: isActive ? '1px solid #007bff' : '1px solid transparent',
+                  transition: 'all 0.2s ease'
+                })}
+              >
+                History
+              </NavLink>
+              <NavLink 
+                to="/contact" 
+                style={({ isActive }) => ({
+                  textDecoration: 'none',
+                  color: isActive ? '#007bff' : '#666',
+                  fontWeight: isActive ? '600' : '400',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  backgroundColor: isActive ? '#e8f4fd' : 'transparent',
+                  fontSize: isMobile ? '14px' : '16px',
+                  whiteSpace: 'nowrap',
+                  border: isActive ? '1px solid #007bff' : '1px solid transparent',
+                  transition: 'all 0.2s ease'
+                })}
+              >
+                Contact
+              </NavLink>
+            </nav>
+          </div>
         </header>
 
         {status && (
