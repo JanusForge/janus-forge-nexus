@@ -105,9 +105,10 @@ async def get_gemini_response(prompt: str, context: str = "") -> str:
         api_key = os.getenv('GEMINI_API_KEY')
         full_prompt = f"{context}\n\n{prompt}" if context else prompt
         
+        # Use the correct API version and model naming
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={api_key}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}",
                 headers={"Content-Type": "application/json"},
                 json={
                     "contents": [{
@@ -118,6 +119,7 @@ async def get_gemini_response(prompt: str, context: str = "") -> str:
                 }
             ) as response:
                 data = await response.json()
+                print(f"🔍 Gemini RAW RESPONSE: {data}")  # Debug log
                 if 'candidates' in data and data['candidates']:
                     return data['candidates'][0]['content']['parts'][0]['text']
                 else:
@@ -125,7 +127,6 @@ async def get_gemini_response(prompt: str, context: str = "") -> str:
                     
     except Exception as e:
         return f"Gemini Error: {str(e)}"
-
 
 
 async def get_deepseek_response(prompt: str, context: str = "") -> str:
