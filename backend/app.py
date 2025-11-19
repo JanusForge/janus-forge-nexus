@@ -104,16 +104,23 @@ async def get_grok_response(prompt: str, context: str = "") -> str:
         return f"Grok Error: {str(e)}"
 
 async def get_gemini_response(prompt: str, context: str = "") -> str:
-    if not gemini_model:
-        return "Gemini API not configured"
-    
     try:
         full_prompt = f"{context}\n\n{prompt}" if context else prompt
-        
+
+        # Try the most likely working model first
+        gemini_model = genai.GenerativeModel("gemini-1.5-flash")
         response = gemini_model.generate_content(full_prompt)
         return response.text
     except Exception as e:
-        return f"Gemini Error: {str(e)}"
+        print(f"Primary Gemini model failed: {e}")
+        
+        # Quick fallback attempt
+        try:
+            gemini_model = genai.GenerativeModel("gemini-pro")
+            response = gemini_model.generate_content(full_prompt)
+            return response.text
+        except Exception as e2:
+            return f"Gemini Error: All models failed. {str(e2)}"
 
 async def get_deepseek_response(prompt: str, context: str = "") -> str:
     api_key = os.getenv('DEEPSEEK_API_KEY')
