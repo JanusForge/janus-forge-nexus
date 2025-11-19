@@ -69,7 +69,7 @@ except Exception as e:
 try:
     # Gemini client
     genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-    gemini_model = genai.GenerativeModel('gemini-pro')
+    gemini_model = genai.GenerativeModel("gemini-1.5-pro-latest")
 except Exception as e:
     print(f"Gemini client initialization failed: {e}")
     gemini_model = None
@@ -86,15 +86,15 @@ def get_db_connection():
 
 # AI Response Functions
 async def get_grok_response(prompt: str, context: str = "") -> str:
-    if not groq_client:
+    if not grok_client:
         return "Grok API not configured"
     
     try:
         full_prompt = f"{context}\n\n{prompt}" if context else prompt
         
-        chat_completion = groq_client.chat.completions.create(
+        chat_completion = grok_client.chat.completions.create(
             messages=[{"role": "user", "content": full_prompt}],
-            model="mixtral-8x7b-32768",
+            model="grok-4-latest",
             temperature=0.7,
             max_tokens=2048
         )
