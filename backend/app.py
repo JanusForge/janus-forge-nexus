@@ -69,7 +69,7 @@ except Exception as e:
 try:
     # Gemini client
     genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-    gemini_model = genai.GenerativeModel("gemini-1.5-pro-latest")
+    gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
 except Exception as e:
     print(f"Gemini client initialization failed: {e}")
     gemini_model = None
