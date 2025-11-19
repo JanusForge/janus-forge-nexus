@@ -12,7 +12,8 @@ from pydantic import BaseModel
 import uvicorn
 import os
 import asyncio
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from datetime import datetime
 import json
 from typing import List, Dict, Optional
