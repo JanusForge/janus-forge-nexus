@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEfect, useRef } from 'react';
 import { BrowserRouter as Router, Route, Routes, NavLink, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
@@ -22,10 +22,6 @@ function PromptInput({ onSend, sessionId, isSending = false }) {
       inputRef.current?.focus();
     }
   };
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, [sessionId]);
 
   return (
     <div style={{
@@ -179,45 +175,69 @@ function Dashboard({ sessionIdFromUrl }) {
     });
   };
 
-  const handleSendPrompt = (promptText) => {
-    if (!promptText.trim() || !sessionId) return;
+const handleSendPrompt = (promptText) => {
+  if (!promptText.trim() || !sessionId) return;
 
-    setStatus('Sending to AI ensemble...');
+  setStatus('Sending to AI ensemble...');
 
-    hubClient.post('/broadcast', {
-      session_id: sessionId,
-      ai_participants: participants,
-      moderator_prompt: promptText
-    })
-    .then(response => {
-      const broadcastData = response.data;
-      console.log('✅ BROADCAST RESPONSE:', broadcastData);
+  // First, add the user's message to session history immediately
+  const userMessage = {
+    role: 'user',
+    content: promptText,
+    timestamp: new Date().toISOString()
+  };
 
-      if (broadcastData.responses) {
-        broadcastData.responses.forEach((response, index) => {
-          console.log(`AI ${index + 1}:`, response.ai_name, '-', response.content.substring(0, 100));
-        });
-      }
+  setSessionHistory(prev => {
+    const updated = [...prev];
+    const currentSession = updated[updated.length - 1];
+    if (currentSession && currentSession.session_id === sessionId) {
+      currentSession.messages = [
+        ...(currentSession.messages || []),
+        userMessage  // Add user message first
+      ];
+    }
+    return updated;
+  });
 
-      setSessionHistory(prev => {
-        const updated = [...prev];
-        const currentSession = updated[updated.length - 1];
-        if (currentSession && currentSession.session_id === sessionId) {
-          currentSession.messages = [
-            ...(currentSession.messages || []),
-            ...broadcastData.responses
-          ];
-        }
-        return updated;
+  // Then send to AI and add their responses
+  hubClient.post('/broadcast', {
+    session_id: sessionId,
+    ai_participants: participants,
+    moderator_prompt: promptText
+  })
+  .then(response => {
+    const broadcastData = response.data;
+    console.log('✅ BROADCAST RESPONSE:', broadcastData);
+
+    if (broadcastData.responses) {
+      broadcastData.responses.forEach((response, index) => {
+        console.log(`AI ${index + 1}:`, response.ai_name, '-', response.content.substring(0, 100));
       });
+    }
 
-      setStatus(`AI synthesis complete! ${broadcastData.responses.length} responses received`);
-    })
-    .catch(error => {
-      console.error('❌ BROADCAST FAILED:', error);
-      console.error('❌ Error response:', error.response?.data);
-      setStatus('Broadcast failed - check console');
+    setSessionHistory(prev => {
+      const updated = [...prev];
+      const currentSession = updated[updated.length - 1];
+      if (currentSession && currentSession.session_id === sessionId) {
+        // Add AI responses after the user message
+        currentSession.messages = [
+          ...(currentSession.messages || []),
+          ...broadcastData.responses
+        ];
+      }
+      return updated;
     });
+
+    setStatus(`AI synthesis complete! ${broadcastData.responses.length} responses received`);
+  })
+  .catch(error => {
+    console.error('❌ BROADCAST FAILED:', error);
+    console.error('❌ Error response:', error.response?.data);
+    setStatus('Broadcast failed - check console');
+  });
+};
+
+
   };
 
   // Ethical check for prompts
@@ -294,23 +314,62 @@ function Dashboard({ sessionIdFromUrl }) {
         )}
       </div>
 
-      <div style={{ background: 'white', padding: '20px', margin: '10px', borderRadius: '8px' }}>
-        <h3 style={{ color: '#333', marginBottom: '15px' }}>AI Response Matrix:</h3>
-        <div style={{ display: 'flex', gap: '20px', minHeight: '500px' }}>
-          {/* Grok Column */}
-          <div style={{...scrollableColumnStyle, borderColor: '#ff6b6b', backgroundColor: '#fff5f5'}} 
-               className="ai-column">
-            <h4 style={{ 
-              color: '#d63031', 
-              margin: '0 0 10px 0', 
-              position: 'sticky', 
-              top: 0, 
-              background: '#fff5f5', 
-              padding: '5px 0', 
-              zIndex: 1 
+// Replace the entire AI Response Matrix section (lines 215-270) with:
+
+<div style={{ background: 'white', padding: '20px', margin: '10px', borderRadius: '8px' }}>
+  <h3 style={{ color: '#333', marginBottom: '15px' }}>AI Conversation Thread:</h3>
+  <div style={{ 
+    border: '2px solid #e0e0e0', 
+    padding: '20px', 
+    borderRadius: '8px', 
+    minHeight: '500px', 
+    maxHeight: '600px', 
+    overflowY: 'auto',
+    backgroundColor: '#fafafa'
+  }}>
+    {sessionHistory.length > 0 && sessionHistory[sessionHistory.length - 1].messages ? (
+      sessionHistory[sessionHistory.length - 1].messages
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+        .map((message, index) => (
+          <div key={index} style={{
+            marginBottom: '15px',
+            padding: '12px',
+            borderRadius: '8px',
+            backgroundColor: message.role === 'ai' ? 
+              (message.ai_name === 'grok' ? '#fff5f5' : 
+               message.ai_name === 'gemini' ? '#f0f8ff' : '#f0fff4') : '#e8f4fd',
+            borderLeft: `4px solid ${
+              message.role === 'ai' ? 
+                (message.ai_name === 'grok' ? '#ff6b6b' : 
+                 message.ai_name === 'gemini' ? '#74b9ff' : '#00b894') : '#007bff'
+            }`
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              marginBottom: '5px',
+              fontWeight: '600',
+              color: message.role === 'ai' ? 
+                (message.ai_name === 'grok' ? '#d63031' : 
+                 message.ai_name === 'gemini' ? '#0984e3' : '#00a085') : '#007bff'
             }}>
-              🦄 Grok
-            </h4>
+              {message.role === 'ai' ? (
+                <>
+                  {message.ai_name === 'grok' && '🦄 '}
+                  {message.ai_name === 'gemini' && '🌀 '}
+                  {message.ai_name === 'deepseek' && '🎯 '}
+                  {message.ai_name}
+                </>
+              ) : '👤 You'}
+              <span style={{ 
+                marginLeft: '10px', 
+                fontSize: '12px', 
+                fontWeight: 'normal', 
+                color: '#666' 
+              }}>
+                {new Date(message.timestamp).toLocaleTimeString()}
+              </span>
+            </div>
             <div style={{ 
               color: '#333', 
               fontSize: '14px', 
@@ -318,78 +377,25 @@ function Dashboard({ sessionIdFromUrl }) {
               whiteSpace: 'pre-wrap',
               wordWrap: 'break-word'
             }}>
-              {grokResponse.content}
+              {message.content}
             </div>
           </div>
-
-          {/* Gemini Column */}
-          <div style={{...scrollableColumnStyle, borderColor: '#74b9ff', backgroundColor: '#f0f8ff'}} 
-               className="ai-column">
-            <h4 style={{ 
-              color: '#0984e3', 
-              margin: '0 0 10px 0', 
-              position: 'sticky', 
-              top: 0, 
-              background: '#f0f8ff', 
-              padding: '5px 0', 
-              zIndex: 1 
-            }}>
-              🌀 Gemini
-            </h4>
-            <div style={{ 
-              color: '#333', 
-              fontSize: '14px', 
-              lineHeight: '1.4', 
-              whiteSpace: 'pre-wrap',
-              wordWrap: 'break-word'
-            }}>
-              {geminiResponse.content}
-            </div>
-          </div>
-
-          {/* DeepSeek Column */}
-          <div style={{...scrollableColumnStyle, borderColor: '#00b894', backgroundColor: '#f0fff4'}} 
-               className="ai-column">
-            <h4 style={{ 
-              color: '#00a085', 
-              margin: '0 0 10px 0', 
-              position: 'sticky', 
-              top: 0, 
-              background: '#f0fff4', 
-              padding: '5px 0', 
-              zIndex: 1 
-            }}>
-              🎯 DeepSeek
-            </h4>
-            <div style={{ 
-              color: '#333', 
-              fontSize: '14px', 
-              lineHeight: '1.4', 
-              whiteSpace: 'pre-wrap',
-              wordWrap: 'break-word'
-            }}>
-              {deepseekResponse.content}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{
-        background: '#e8f4fd',
-        padding: '15px',
-        margin: '10px',
-        borderRadius: '8px',
-        border: '1px solid #74b9ff'
+        ))
+    ) : (
+      <div style={{ 
+        textAlign: 'center', 
+        color: '#666', 
+        padding: '40px',
+        fontStyle: 'italic'
       }}>
-        <p style={{ margin: 0, color: '#0984e3' }}>
-          <strong>Status:</strong> {status || (sessionHistory.length > 0 ?
-            `Connected with ${sessionHistory.length} session(s)` :
-            'Ready for new session')}
-        </p>
+        No messages yet. Start a conversation with the AI ensemble!
       </div>
-    </div>
-  );
+    )}
+  </div>
+</div>
+);
 }
+
 
 // --- HISTORY PAGE COMPONENT ---
 function HistoryPage() {
