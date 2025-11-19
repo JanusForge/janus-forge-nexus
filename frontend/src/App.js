@@ -624,162 +624,166 @@ function App() {
   return (
     <Router>
       <div className="App">
-        {/* Single Unified Header */}
-        <header style={{
-          padding: isMobile ? '15px' : '20px',
-          borderBottom: '1px solid #ccc',
-          backgroundColor: 'white',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+{/* Single Unified Header */}
+<header style={{
+  padding: isMobile ? '15px' : '20px',
+  borderBottom: '1px solid #ccc',
+  backgroundColor: 'white',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+}}>
+  <div style={{
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexDirection: isMobile ? 'column' : 'row',
+    gap: isMobile ? '15px' : '0'
+  }}>
+    {/* Brand Section */}
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '20px',
+      textAlign: isMobile ? 'center' : 'left'
+    }}>
+      {/* Janus Forge Logo - LARGER */}
+      <img 
+        src="/janus-forge-logo.jpg" 
+        alt="Janus Forge"
+        style={{
+          width: isMobile ? '80px' : '100px',
+          height: isMobile ? '80px' : '100px',
+          borderRadius: '8px',
+          objectFit: 'cover',
+          border: '2px solid #333',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+        }}
+      />
+      
+      <div>
+        <h1 style={{ 
+          margin: 0, 
+          color: '#333',
+          fontSize: isMobile ? '22px' : '28px',
+          fontWeight: '700'
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexDirection: isMobile ? 'column' : 'row',
-            gap: isMobile ? '15px' : '0'
+          Janus Forge Nexus
+        </h1>
+        <p style={{
+          margin: '6px 0 0 0',
+          color: '#666',
+          fontSize: isMobile ? '15px' : '18px',
+          fontStyle: 'italic',
+          fontWeight: '500'
+        }}>
+          Thesis. Antithesis. Humanity
+        </p>
+        
+        {/* Brand Tags */}
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          marginTop: '10px',
+          flexWrap: 'wrap',
+          justifyContent: isMobile ? 'center' : 'flex-start'
+        }}>
+          <span style={{
+            padding: '6px 12px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: '#495057',
+            border: '1px solid #dee2e6',
+            fontWeight: '500'
           }}>
-            {/* Brand Section */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '15px',
-              textAlign: isMobile ? 'center' : 'left'
-            }}>
-              {/* Janus Forge Logo */}
-              <img 
-                src="/janus-forge-logo.jpg" 
-                alt="Janus Forge"
-                style={{
-                  width: isMobile ? '50px' : '60px',
-                  height: isMobile ? '50px' : '60px',
-                  borderRadius: '8px',
-                  objectFit: 'cover',
-                  border: '2px solid #333'
-                }}
-              />
-              
-              <div>
-                <h1 style={{ 
-                  margin: 0, 
-                  color: '#333',
-                  fontSize: isMobile ? '20px' : '24px',
-                  fontWeight: '700'
-                }}>
-                  Janus Forge Nexus
-                </h1>
-                <p style={{
-                  margin: '4px 0 0 0',
-                  color: '#666',
-                  fontSize: isMobile ? '14px' : '16px',
-                  fontStyle: 'italic'
-                }}>
-                  Thesis. Antithesis. Humanity
-                </p>
-                
-                {/* Brand Tags */}
-                <div style={{
-                  display: 'flex',
-                  gap: '10px',
-                  marginTop: '8px',
-                  flexWrap: 'wrap',
-                  justifyContent: isMobile ? 'center' : 'flex-start'
-                }}>
-                  <span style={{
-                    padding: '4px 8px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    color: '#495057',
-                    border: '1px solid #dee2e6'
-                  }}>
-                    ACCELERATORS, LLC
-                  </span>
-                  <span style={{
-                    padding: '4px 8px',
-                    backgroundColor: '#fff3cd',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    color: '#856404',
-                    border: '1px solid #ffeaa7'
-                  }}>
-                    VETERAN-OWNED
-                  </span>
-                  <span style={{
-                    padding: '4px 8px',
-                    backgroundColor: '#d1ecf1',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    color: '#0c5460',
-                    border: '1px solid #bee5eb'
-                  }}>
-                    synthesis
-                  </span>
-                </div>
-              </div>
-            </div>
+            ACCELERATORS, LLC
+          </span>
+          <span style={{
+            padding: '6px 12px',
+            backgroundColor: '#fff3cd',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: '#856404',
+            border: '1px solid #ffeaa7',
+            fontWeight: '500'
+          }}>
+            VETERAN-OWNED
+          </span>
+          <span style={{
+            padding: '6px 12px',
+            backgroundColor: '#d1ecf1',
+            borderRadius: '6px',
+            fontSize: '13px',
+            color: '#0c5460',
+            border: '1px solid #bee5eb',
+            fontWeight: '500'
+          }}>
+            synthesis
+          </span>
+        </div>
+      </div>
+    </div>
 
-            {/* Navigation */}
-            <nav style={{
-              display: 'flex',
-              gap: isMobile ? '10px' : '15px',
-              flexWrap: 'wrap',
-              justifyContent: isMobile ? 'center' : 'flex-end'
-            }}>
-              <NavLink 
-                to="/" 
-                style={({ isActive }) => ({
-                  textDecoration: 'none',
-                  color: isActive ? '#007bff' : '#666',
-                  fontWeight: isActive ? '600' : '400',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  backgroundColor: isActive ? '#e8f4fd' : 'transparent',
-                  fontSize: isMobile ? '14px' : '16px',
-                  whiteSpace: 'nowrap',
-                  border: isActive ? '1px solid #007bff' : '1px solid transparent',
-                  transition: 'all 0.2s ease'
-                })}
-              >
-                Dashboard
-              </NavLink>
-              <NavLink 
-                to="/history" 
-                style={({ isActive }) => ({
-                  textDecoration: 'none',
-                  color: isActive ? '#007bff' : '#666',
-                  fontWeight: isActive ? '600' : '400',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  backgroundColor: isActive ? '#e8f4fd' : 'transparent',
-                  fontSize: isMobile ? '14px' : '16px',
-                  whiteSpace: 'nowrap',
-                  border: isActive ? '1px solid #007bff' : '1px solid transparent',
-                  transition: 'all 0.2s ease'
-                })}
-              >
-                History
-              </NavLink>
-              <NavLink 
-                to="/contact" 
-                style={({ isActive }) => ({
-                  textDecoration: 'none',
-                  color: isActive ? '#007bff' : '#666',
-                  fontWeight: isActive ? '600' : '400',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  backgroundColor: isActive ? '#e8f4fd' : 'transparent',
-                  fontSize: isMobile ? '14px' : '16px',
-                  whiteSpace: 'nowrap',
-                  border: isActive ? '1px solid #007bff' : '1px solid transparent',
-                  transition: 'all 0.2s ease'
-                })}
-              >
-                Contact
-              </NavLink>
-            </nav>
-          </div>
-        </header>
-
+    {/* Navigation */}
+    <nav style={{
+      display: 'flex',
+      gap: isMobile ? '12px' : '20px',
+      flexWrap: 'wrap',
+      justifyContent: isMobile ? 'center' : 'flex-end'
+    }}>
+      <NavLink 
+        to="/" 
+        style={({ isActive }) => ({
+          textDecoration: 'none',
+          color: isActive ? '#007bff' : '#666',
+          fontWeight: isActive ? '600' : '500',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          backgroundColor: isActive ? '#e8f4fd' : 'transparent',
+          fontSize: isMobile ? '15px' : '17px',
+          whiteSpace: 'nowrap',
+          border: isActive ? '2px solid #007bff' : '2px solid transparent',
+          transition: 'all 0.2s ease'
+        })}
+      >
+        Dashboard
+      </NavLink>
+      <NavLink 
+        to="/history" 
+        style={({ isActive }) => ({
+          textDecoration: 'none',
+          color: isActive ? '#007bff' : '#666',
+          fontWeight: isActive ? '600' : '500',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          backgroundColor: isActive ? '#e8f4fd' : 'transparent',
+          fontSize: isMobile ? '15px' : '17px',
+          whiteSpace: 'nowrap',
+          border: isActive ? '2px solid #007bff' : '2px solid transparent',
+          transition: 'all 0.2s ease'
+        })}
+      >
+        History
+      </NavLink>
+      <NavLink 
+        to="/contact" 
+        style={({ isActive }) => ({
+          textDecoration: 'none',
+          color: isActive ? '#007bff' : '#666',
+          fontWeight: isActive ? '600' : '500',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          backgroundColor: isActive ? '#e8f4fd' : 'transparent',
+          fontSize: isMobile ? '15px' : '17px',
+          whiteSpace: 'nowrap',
+          border: isActive ? '2px solid #007bff' : '2px solid transparent',
+          transition: 'all 0.2s ease'
+        })}
+      >
+        Contact
+      </NavLink>
+    </nav>
+  </div>
+</header>
         {status && (
           <div style={{
             padding: isMobile ? '8px 15px' : '10px 20px',
