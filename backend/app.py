@@ -103,30 +103,41 @@ async def get_grok_response(prompt: str, context: str = "") -> str:
     except Exception as e:
         return f"Grok Error: {str(e)}"
 
-
 async def get_gemini_response(prompt: str, context: str = "") -> str:
     try:
         full_prompt = f"{context}\n\n{prompt}" if context else prompt
         
-        # Reconfigure with latest API settings
+        # Force new configuration with latest API
         import google.generativeai as genai
+        import os
+        
+        # Clear any cached configuration
         genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
         
-        # Try latest model naming convention
+        # List available models to see what's actually available
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            available_models = genai.list_models()
+            model_names = [model.name for model in available_models]
+            print(f"Available Gemini models: {model_names}")
+        except:
+            pass
+        
+        # Try the absolute latest naming pattern
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash-001")
             response = model.generate_content(full_prompt)
             return response.text
         except Exception as e:
-            print(f"Gemini 1.5-flash failed: {e}")
+            print(f"Gemini 1.5-flash-001 failed: {e}")
             
-            # Fallback to basic model name
+            # Try without version
             try:
-                model = genai.GenerativeModel("gemini-pro")
+                model = genai.GenerativeModel("gemini-1.5-flash")
                 response = model.generate_content(full_prompt)
                 return response.text
             except Exception as e2:
-                return f"Gemini Error: Both models failed. Latest error: {str(e2)}"
+                print(f"Gemini 1.5-flash failed: {e2}")
+                return f"Gemini Error: Available models needed. Check API key and region."
                 
     except Exception as e:
         return f"Gemini Configuration Error: {str(e)}"
