@@ -103,24 +103,34 @@ async def get_grok_response(prompt: str, context: str = "") -> str:
     except Exception as e:
         return f"Grok Error: {str(e)}"
 
+
 async def get_gemini_response(prompt: str, context: str = "") -> str:
     try:
         full_prompt = f"{context}\n\n{prompt}" if context else prompt
-
-        # Try the most likely working model first
-        gemini_model = genai.GenerativeModel("gemini-1.5-flash")
-        response = gemini_model.generate_content(full_prompt)
-        return response.text
-    except Exception as e:
-        print(f"Primary Gemini model failed: {e}")
         
-        # Quick fallback attempt
+        # Reconfigure with latest API settings
+        import google.generativeai as genai
+        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+        
+        # Try latest model naming convention
         try:
-            gemini_model = genai.GenerativeModel("gemini-pro")
-            response = gemini_model.generate_content(full_prompt)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(full_prompt)
             return response.text
-        except Exception as e2:
-            return f"Gemini Error: All models failed. {str(e2)}"
+        except Exception as e:
+            print(f"Gemini 1.5-flash failed: {e}")
+            
+            # Fallback to basic model name
+            try:
+                model = genai.GenerativeModel("gemini-pro")
+                response = model.generate_content(full_prompt)
+                return response.text
+            except Exception as e2:
+                return f"Gemini Error: Both models failed. Latest error: {str(e2)}"
+                
+    except Exception as e:
+        return f"Gemini Configuration Error: {str(e)}"
+
 
 async def get_deepseek_response(prompt: str, context: str = "") -> str:
     api_key = os.getenv('DEEPSEEK_API_KEY')
