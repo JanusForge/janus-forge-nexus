@@ -257,7 +257,7 @@ function Dashboard({ sessionIdFromUrl }) {
       maxWidth: '100%',
       overflowX: 'hidden'
     }}>
-      {/* Session Controls - Now the main content area */}
+      {/* Session Controls */}
       <div style={{
         background: 'white',
         padding: isMobile ? '12px' : '15px',
@@ -645,18 +645,36 @@ function App() {
               gap: '15px',
               textAlign: isMobile ? 'center' : 'left'
             }}>
-              {/* In the main header */}
-<img 
-  src="/janus-forge-logo.jpg" 
-  alt="Janus Forge"
-  style={{
-    width: isMobile ? '50px' : '60px',
-    height: isMobile ? '50px' : '60px',
-    borderRadius: '8px',
-    objectFit: 'cover',
-    border: '2px solid #333'
-  }}
-/>
+              {/* Janus Forge Logo */}
+              <img 
+                src="/janus-forge-logo.jpg" 
+                alt="Janus Forge"
+                style={{
+                  width: isMobile ? '50px' : '60px',
+                  height: isMobile ? '50px' : '60px',
+                  borderRadius: '8px',
+                  objectFit: 'cover',
+                  border: '2px solid #333'
+                }}
+              />
+              
+              <div>
+                <h1 style={{ 
+                  margin: 0, 
+                  color: '#333',
+                  fontSize: isMobile ? '20px' : '24px',
+                  fontWeight: '700'
+                }}>
+                  Janus Forge Nexus
+                </h1>
+                <p style={{
+                  margin: '4px 0 0 0',
+                  color: '#666',
+                  fontSize: isMobile ? '14px' : '16px',
+                  fontStyle: 'italic'
+                }}>
+                  Thesis. Antithesis. Humanity
+                </p>
                 
                 {/* Brand Tags */}
                 <div style={{
