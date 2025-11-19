@@ -23,21 +23,31 @@ function PromptInput({ onSend, sessionId, isSending = false }) {
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
       gap: '10px',
       alignItems: 'stretch',
-      marginBottom: '10px',
-      position: 'relative',
-      width: '100%'
+      marginTop: '20px',
+      padding: '15px',
+      backgroundColor: '#f8f9fa',
+      borderRadius: '8px',
+      border: '1px solid #dee2e6'
     }}>
       <textarea
         ref={inputRef}
         value={localPrompt}
         onChange={(e) => setLocalPrompt(e.target.value)}
-        placeholder={sessionId ? "Broadcast to AI ensemble..." : "Create a session first..."}
+        onKeyDown={handleKeyDown}
+        placeholder={sessionId ? "Type your message to the AI ensemble... (Press Enter to send)" : "Create a session first..."}
         disabled={!sessionId || isSending}
         style={{
           padding: '12px 16px',
@@ -45,8 +55,8 @@ function PromptInput({ onSend, sessionId, isSending = false }) {
           borderRadius: '8px',
           fontSize: '16px',
           outline: 'none',
-          minHeight: '120px',
-          maxHeight: '200px',
+          minHeight: '80px',
+          maxHeight: '150px',
           width: '100%',
           backgroundColor: 'white',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
@@ -55,12 +65,6 @@ function PromptInput({ onSend, sessionId, isSending = false }) {
           resize: 'vertical',
           fontFamily: 'inherit',
           lineHeight: '1.4'
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && e.ctrlKey) {
-            handleSubmit();
-            e.preventDefault();
-          }
         }}
       />
 
@@ -83,6 +87,15 @@ function PromptInput({ onSend, sessionId, isSending = false }) {
       >
         {isSending ? '🔄 Broadcasting...' : '🚀 Send to AI Ensemble'}
       </button>
+      
+      <div style={{
+        fontSize: '12px',
+        color: '#6c757d',
+        textAlign: 'center',
+        marginTop: '5px'
+      }}>
+        Press Enter to send • Shift+Enter for new line
+      </div>
     </div>
   );
 }
@@ -94,6 +107,16 @@ function Dashboard({ sessionIdFromUrl }) {
   const [sessionHistory, setSessionHistory] = useState([]);
   const [participants, setParticipants] = useState(['grok', 'gemini', 'deepseek']);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const messagesEndRef = useRef(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [sessionHistory]);
 
   // Handle responsive design
   useEffect(() => {
@@ -234,6 +257,7 @@ function Dashboard({ sessionIdFromUrl }) {
       maxWidth: '100%',
       overflowX: 'hidden'
     }}>
+      {/* Brand Header */}
       <div style={{
         background: 'white',
         padding: isMobile ? '12px' : '20px',
@@ -242,16 +266,71 @@ function Dashboard({ sessionIdFromUrl }) {
         border: '1px solid #ddd',
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
       }}>
-        <h1 style={{ 
-          color: '#333', 
-          margin: '0 0 8px 0',
-          fontSize: isMobile ? '20px' : '24px'
-        }}>🎯 Janus Forge Nexus</h1>
-        <p style={{ 
-          color: '#666', 
-          margin: 0,
-          fontSize: isMobile ? '14px' : '16px'
-        }}>Multi-AI Conversation Platform</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '8px' }}>
+          {/* Janus Forge Logo */}
+          <img 
+            src="/janus-forge-logo.jpg" 
+            alt="Janus Forge"
+            style={{
+              width: isMobile ? '50px' : '60px',
+              height: isMobile ? '50px' : '60px',
+              borderRadius: '8px',
+              objectFit: 'cover',
+              border: '2px solid #333'
+            }}
+          />
+          <div>
+            <h1 style={{ 
+              color: '#333', 
+              margin: '0 0 4px 0',
+              fontSize: isMobile ? '20px' : '24px',
+              fontWeight: '700'
+            }}>Janus Forge Nexus</h1>
+            <p style={{ 
+              color: '#666', 
+              margin: 0,
+              fontSize: isMobile ? '14px' : '16px',
+              fontStyle: 'italic'
+            }}>Thesis. Antithesis. Humanity</p>
+          </div>
+        </div>
+        <div style={{
+          display: 'flex',
+          gap: '15px',
+          marginTop: '10px',
+          flexWrap: 'wrap'
+        }}>
+          <span style={{
+            padding: '4px 8px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '4px',
+            fontSize: '12px',
+            color: '#495057',
+            border: '1px solid #dee2e6'
+          }}>
+            ACCELERATORS, LLC
+          </span>
+          <span style={{
+            padding: '4px 8px',
+            backgroundColor: '#fff3cd',
+            borderRadius: '4px',
+            fontSize: '12px',
+            color: '#856404',
+            border: '1px solid #ffeaa7'
+          }}>
+            VETERAN-OWNED
+          </span>
+          <span style={{
+            padding: '4px 8px',
+            backgroundColor: '#d1ecf1',
+            borderRadius: '4px',
+            fontSize: '12px',
+            color: '#0c5460',
+            border: '1px solid #bee5eb'
+          }}>
+            synthesis
+          </span>
+        </div>
       </div>
 
       {/* Session Controls */}
@@ -309,6 +388,13 @@ function Dashboard({ sessionIdFromUrl }) {
                 }}>
                   <strong>Active Session:</strong> {sessionId}
                 </p>
+                <p style={{ 
+                  margin: '5px 0 0 0', 
+                  fontSize: isMobile ? '13px' : '14px', 
+                  color: '#888'
+                }}>
+                  AI Participants: {participants.join(', ')}
+                </p>
               </div>
               <button 
                 onClick={() => setSessionId('')}
@@ -326,17 +412,11 @@ function Dashboard({ sessionIdFromUrl }) {
                 End Session
               </button>
             </div>
-            
-            <PromptInput 
-              onSend={handleSendPrompt}
-              sessionId={sessionId}
-              isSending={status.includes('Sending') || status.includes('Broadcasting')}
-            />
           </div>
         )}
       </div>
 
-      {/* Conversation Thread */}
+      {/* Unified Conversation Thread with Integrated Input */}
       <div style={{ 
         background: 'white', 
         padding: isMobile ? '12px' : '20px', 
@@ -359,62 +439,72 @@ function Dashboard({ sessionIdFromUrl }) {
           minHeight: isMobile ? '300px' : '500px', 
           maxHeight: isMobile ? '400px' : '600px', 
           overflowY: 'auto',
-          backgroundColor: '#fafafa'
+          backgroundColor: '#fafafa',
+          marginBottom: '20px'
         }}>
           {currentMessages.length > 0 ? (
-            currentMessages.map((message, index) => (
-              <div key={index} style={{
-                marginBottom: '15px',
-                padding: isMobile ? '10px' : '12px',
-                borderRadius: '8px',
-                backgroundColor: message.role === 'ai' ? 
-                  (message.ai_name === 'grok' ? '#fff5f5' : 
-                   message.ai_name === 'gemini' ? '#f0f8ff' : '#f0fff4') : '#e8f4fd',
-                borderLeft: `4px solid ${
-                  message.role === 'ai' ? 
-                    (message.ai_name === 'grok' ? '#ff6b6b' : 
-                     message.ai_name === 'gemini' ? '#74b9ff' : '#00b894') : '#007bff'
-                }`
-              }}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  marginBottom: '5px',
-                  fontWeight: '600',
-                  fontSize: isMobile ? '14px' : '16px',
-                  color: message.role === 'ai' ? 
-                    (message.ai_name === 'grok' ? '#d63031' : 
-                     message.ai_name === 'gemini' ? '#0984e3' : '#00a085') : '#007bff',
-                  flexWrap: 'wrap'
-                }}>
-                  {message.role === 'ai' ? (
-                    <>
-                      {message.ai_name === 'grok' && '🦄 '}
-                      {message.ai_name === 'gemini' && '🌀 '}
-                      {message.ai_name === 'deepseek' && '🎯 '}
-                      {message.ai_name}
-                    </>
-                  ) : '👤 You'}
-                  <span style={{ 
-                    marginLeft: '10px', 
-                    fontSize: isMobile ? '11px' : '12px', 
-                    fontWeight: 'normal', 
-                    color: '#666' 
+            <>
+              {currentMessages.map((message, index) => {
+                // Determine if this is a user message or AI message
+                const isUserMessage = message.role === 'user' || !message.ai_name;
+                const aiName = message.ai_name || '';
+                
+                return (
+                  <div key={index} style={{
+                    marginBottom: '15px',
+                    padding: isMobile ? '10px' : '12px',
+                    borderRadius: '8px',
+                    backgroundColor: !isUserMessage ? 
+                      (aiName === 'grok' ? '#fff5f5' : 
+                       aiName === 'gemini' ? '#f0f8ff' : '#f0fff4') : '#e8f4fd',
+                    borderLeft: `4px solid ${
+                      !isUserMessage ? 
+                        (aiName === 'grok' ? '#ff6b6b' : 
+                         aiName === 'gemini' ? '#74b9ff' : '#00b894') : '#007bff'
+                    }`
                   }}>
-                    {new Date(message.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-                <div style={{ 
-                  color: '#333', 
-                  fontSize: isMobile ? '14px' : '15px', 
-                  lineHeight: '1.5', 
-                  whiteSpace: 'pre-wrap',
-                  wordWrap: 'break-word'
-                }}>
-                  {message.content}
-                </div>
-              </div>
-            ))
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      marginBottom: '5px',
+                      fontWeight: '600',
+                      fontSize: isMobile ? '14px' : '16px',
+                      color: !isUserMessage ? 
+                        (aiName === 'grok' ? '#d63031' : 
+                         aiName === 'gemini' ? '#0984e3' : '#00a085') : '#007bff',
+                      flexWrap: 'wrap'
+                    }}>
+                      {!isUserMessage ? (
+                        <>
+                          {aiName === 'grok' && '🦄 '}
+                          {aiName === 'gemini' && '🌀 '}
+                          {aiName === 'deepseek' && '🎯 '}
+                          {aiName || 'AI'}
+                        </>
+                      ) : '👤 You'}
+                      <span style={{ 
+                        marginLeft: '10px', 
+                        fontSize: isMobile ? '11px' : '12px', 
+                        fontWeight: 'normal', 
+                        color: '#666' 
+                      }}>
+                        {new Date(message.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div style={{ 
+                      color: '#333', 
+                      fontSize: isMobile ? '14px' : '15px', 
+                      lineHeight: '1.5', 
+                      whiteSpace: 'pre-wrap',
+                      wordWrap: 'break-word'
+                    }}>
+                      {message.content}
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </>
           ) : (
             <div style={{ 
               textAlign: 'center', 
@@ -429,6 +519,15 @@ function Dashboard({ sessionIdFromUrl }) {
             </div>
           )}
         </div>
+
+        {/* Input Area - Now integrated inside the conversation thread */}
+        {sessionId && (
+          <PromptInput 
+            onSend={handleSendPrompt}
+            sessionId={sessionId}
+            isSending={status.includes('Sending') || status.includes('Broadcasting')}
+          />
+        )}
       </div>
 
       {/* Status Bar */}
@@ -611,14 +710,38 @@ function App() {
           flexDirection: isMobile ? 'column' : 'row',
           gap: isMobile ? '10px' : '0'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 style={{ 
-              margin: 0, 
-              color: '#333',
-              fontSize: isMobile ? '18px' : '24px'
-            }}>
-              Janus Forge Nexus
-            </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {/* Janus Forge Logo */}
+            <img 
+              src="/janus-forge-logo.jpg" 
+              alt="Janus Forge"
+              style={{
+                width: isMobile ? '40px' : '50px',
+                height: isMobile ? '40px' : '50px',
+                borderRadius: '6px',
+                objectFit: 'cover',
+                border: '2px solid #333'
+              }}
+            />
+            
+            <div>
+              <h1 style={{ 
+                margin: 0, 
+                color: '#333',
+                fontSize: isMobile ? '18px' : '24px',
+                fontWeight: '700'
+              }}>
+                Janus Forge Nexus
+              </h1>
+              <p style={{
+                margin: 0,
+                color: '#666',
+                fontSize: isMobile ? '12px' : '14px',
+                fontStyle: 'italic'
+              }}>
+                Multi-AI Conversation Platform
+              </p>
+            </div>
           </div>
 
           <nav style={{
