@@ -103,44 +103,51 @@ async def get_grok_response(prompt: str, context: str = "") -> str:
     except Exception as e:
         return f"Grok Error: {str(e)}"
 
+
 async def get_gemini_response(prompt: str, context: str = "") -> str:
     try:
-        full_prompt = f"{context}\n\n{prompt}" if context else prompt
-        
-        # Force new configuration with latest API
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types
         import os
         
-        # Clear any cached configuration
-        genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+        client = genai.Client(
+            api_key=os.environ.get("GEMINI_API_KEY"),  # Note: GEMINI_API_KEY not GOOGLE_API_KEY
+        )
+
+        full_prompt = f"{context}\n\n{prompt}" if context else prompt
         
-        # List available models to see what's actually available
-        try:
-            available_models = genai.list_models()
-            model_names = [model.name for model in available_models]
-            print(f"Available Gemini models: {model_names}")
-        except:
-            pass
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_text(text=full_prompt),
+                ],
+            ),
+        ]
+
+        # Try different models
+        models_to_try = [
+            "gemini-2.0-flash-exp",  # Latest flash model
+            "gemini-1.5-flash",      # Stable flash model  
+            "gemini-1.5-pro",        # Pro model
+        ]
         
-        # Try the absolute latest naming pattern
-        try:
-            model = genai.GenerativeModel("gemini-1.5-flash-001")
-            response = model.generate_content(full_prompt)
-            return response.text
-        except Exception as e:
-            print(f"Gemini 1.5-flash-001 failed: {e}")
-            
-            # Try without version
+        for model in models_to_try:
             try:
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                response = model.generate_content(full_prompt)
+                response = client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                )
                 return response.text
-            except Exception as e2:
-                print(f"Gemini 1.5-flash failed: {e2}")
-                return f"Gemini Error: Available models needed. Check API key and region."
-                
+            except Exception as e:
+                print(f"Gemini model {model} failed: {e}")
+                continue
+        
+        return "Gemini Error: All models failed"
+        
     except Exception as e:
         return f"Gemini Configuration Error: {str(e)}"
+
 
 
 async def get_deepseek_response(prompt: str, context: str = "") -> str:
