@@ -542,12 +542,23 @@ function HistoryPage() {
   };
 
   const formatTimestamp = (timestamp) => {
-    try {
-      return new Date(timestamp).toLocaleString();
-    } catch (e) {
-      return 'Invalid date';
-    }
-  };
+  try {
+    const date = new Date(timestamp);
+    const datePart = date.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'long', 
+      year: 'numeric'
+    });
+    const timePart = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    return `${datePart} at ${timePart}`;
+  } catch (e) {
+    return 'Invalid date';
+  }
+};
 
   const exportAsJSON = (session) => {
     const dataStr = JSON.stringify(session, null, 2);
