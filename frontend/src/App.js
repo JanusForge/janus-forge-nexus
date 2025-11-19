@@ -478,11 +478,12 @@ function Dashboard({ sessionIdFromUrl }) {
   );
 }
 
-// --- HISTORY PAGE COMPONENT ---
+// --- ENHANCED HISTORY PAGE COMPONENT ---
 function HistoryPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [deletingSession, setDeletingSession] = useState(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -490,7 +491,12 @@ function HistoryPage() {
     };
 
     window.addEventListener('resize', handleResize);
-    
+    loadSessions();
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const loadSessions = () => {
     hubClient.get('/sessions')
       .then(response => {
         setSessions(response.data.sessions || []);
@@ -498,32 +504,126 @@ function HistoryPage() {
       .catch(error => {
         console.error('Failed to load sessions:', error);
       });
-
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const handleSessionClick = (sessionId) => {
-    hubClient.get(`/session/${sessionId}`)
-      .then(response => {
-        const sessionData = response.data;
-        navigate(`/session/${sessionId}`);
-      })
-      .catch(error => {
-        console.error('Session load failed:', error);
-      });
   };
 
-  const exportSession = (sessionId) => {
-    const session = sessions.find(s => s.session_id === sessionId);
-    if (!session) return;
+  const handleSessionClick = (sessionId) => {
+    navigate(`/session/${sessionId}`);
+  };
 
+  const handleDeleteSession = (sessionId, e) => {
+    e.stopPropagation();
+    setDeletingSession(sessionId);
+    
+    if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+      hubClient.delete(`/session/${sessionId}`)
+        .then(response => {
+          setSessions(prev => prev.filter(s => s.session_id !== sessionId));
+          setDeletingSession(null);
+        })
+        .catch(error => {
+          console.error('Session deletion failed:', error);
+          alert('Failed to delete session. Please try again.');
+          setDeletingSession(null);
+        });
+    } else {
+      setDeletingSession(null);
+    }
+  };
+
+  const exportAsJSON = (session) => {
     const dataStr = JSON.stringify(session, null, 2);
     const dataBlob = new Blob([dataStr], {type: 'application/json'});
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    link.download = `janus-forge-session-${sessionId}.json`;
+    link.download = `janus-forge-session-${session.session_id}.json`;
     link.click();
+  };
+
+  const exportAsText = (session) => {
+    let textContent = `JANUS FORGE NEXUS - SESSION EXPORT\n`;
+    textContent += `Session: ${session.session_id}\n`;
+    textContent += `Date: ${new Date(session.last_updated).toLocaleString()}\n`;
+    textContent += `Message Count: ${session.message_count || 'Unknown'}\n`;
+    textContent += `========================================\n\n`;
+    
+    if (session.messages) {
+      const sortedMessages = session.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      sortedMessages.forEach(message => {
+        const sender = message.role === 'user' ? 'You' : (message.ai_name || 'AI');
+        const timestamp = new Date(message.timestamp).toLocaleString();
+        textContent += `${sender} (${timestamp}):\n${message.content}\n\n`;
+      });
+    }
+    
+    const dataBlob = new Blob([textContent], {type: 'text/plain'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `janus-forge-${session.session_id}.txt`;
+    link.click();
+  };
+
+  const printSession = (session) => {
+    const printWindow = window.open('', '_blank');
+    const sortedMessages = session.messages ? 
+      session.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)) : [];
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Janus Forge Session - ${session.session_id}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+          .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+          .message { margin-bottom: 20px; padding: 15px; border-left: 4px solid #007bff; background: #f8f9fa; }
+          .user-message { border-left-color: #007bff; background: #e8f4fd; }
+          .ai-message { border-left-color: #28a745; background: #f0fff4; }
+          .message-header { font-weight: bold; margin-bottom: 8px; color: #333; }
+          .timestamp { color: #666; font-size: 0.9em; margin-left: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Janus Forge Nexus</h1>
+          <h2>Session: ${session.session_id}</h2>
+          <p>Exported on ${new Date().toLocaleString()}</p>
+        </div>
+        ${sortedMessages.map(message => `
+          <div class="message ${message.role === 'user' ? 'user-message' : 'ai-message'}">
+            <div class="message-header">
+              ${message.role === 'user' ? 'You' : (message.ai_name || 'AI')}
+              <span class="timestamp">${new Date(message.timestamp).toLocaleString()}</span>
+            </div>
+            <div>${message.content}</div>
+          </div>
+        `).join('')}
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
+  const exportSession = (session, format, e) => {
+    if (e) e.stopPropagation();
+    
+    switch (format) {
+      case 'json':
+        exportAsJSON(session);
+        break;
+      case 'text':
+        exportAsText(session);
+        break;
+      case 'print':
+        printSession(session);
+        break;
+      default:
+        exportAsText(session);
+    }
   };
 
   return (
@@ -532,66 +632,208 @@ function HistoryPage() {
       minHeight: '100vh', 
       backgroundColor: '#f0f0f0' 
     }}>
-      <h2 style={{ fontSize: isMobile ? '20px' : '24px' }}>Session History</h2>
-      <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
-        Click a session to load and review the conversation. Export to save sessions locally.
-      </p>
+      <div style={{
+        background: 'white',
+        padding: isMobile ? '15px' : '20px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        marginBottom: '20px'
+      }}>
+        <h2 style={{ 
+          fontSize: isMobile ? '20px' : '24px', 
+          margin: '0 0 10px 0',
+          color: '#333'
+        }}>
+          Session History
+        </h2>
+        <p style={{ 
+          fontSize: isMobile ? '14px' : '16px', 
+          color: '#666',
+          margin: 0
+        }}>
+          Click a session to load and review the conversation. Export in different formats or delete your sessions.
+        </p>
+      </div>
 
       {sessions.length === 0 ? (
-        <p style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-          No sessions found.
-        </p>
+        <div style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '8px',
+          textAlign: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          <p style={{ color: '#666', fontSize: '16px', margin: 0 }}>
+            No sessions found. Start a conversation on the Dashboard to see your history here.
+          </p>
+        </div>
       ) : (
         <div>
           {sessions.map(session => (
             <div key={session.session_id} style={{
-              padding: isMobile ? '12px' : '15px',
-              margin: '10px 0',
-              border: '1px solid #ccc',
+              padding: isMobile ? '15px' : '20px',
+              margin: '0 0 15px 0',
+              border: '1px solid #ddd',
               borderRadius: '8px',
               backgroundColor: 'white',
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
             }}
             onClick={() => handleSessionClick(session.session_id)}
             onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
             onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}>
+              
               <div style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'flex-start',
                 flexDirection: isMobile ? 'column' : 'row',
-                gap: isMobile ? '10px' : '0'
+                gap: isMobile ? '15px' : '0',
+                marginBottom: '15px'
               }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                    <strong>Session:</strong> {session.session_id}
+                  <div style={{ 
+                    fontSize: isMobile ? '16px' : '18px', 
+                    fontWeight: '600',
+                    color: '#333',
+                    marginBottom: '8px'
+                  }}>
+                    {session.session_id}
                   </div>
-                  <div style={{ fontSize: isMobile ? '13px' : '14px', color: '#666' }}>
-                    <strong>Last Active:</strong> {new Date(session.last_updated).toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: isMobile ? '13px' : '14px', color: '#666' }}>
-                    <strong>Messages:</strong> {session.message_count || 'Unknown'}
+                  <div style={{ 
+                    fontSize: isMobile ? '14px' : '15px', 
+                    color: '#666',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '15px'
+                  }}>
+                    <span>
+                      <strong>Last Active:</strong> {new Date(session.last_updated).toLocaleString()}
+                    </span>
+                    <span>
+                      <strong>Messages:</strong> {session.message_count || '0'}
+                    </span>
                   </div>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    exportSession(session.session_id);
-                  }}
-                  style={{
-                    padding: isMobile ? '6px 12px' : '8px 16px',
-                    backgroundColor: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: isMobile ? '13px' : '14px',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  💾 Export
-                </button>
+                
+                {/* Action Buttons */}
+                <div style={{
+                  display: 'flex',
+                  gap: '10px',
+                  flexDirection: isMobile ? 'row' : 'column',
+                  alignItems: 'flex-end'
+                }}>
+                  {/* Export Dropdown */}
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    >
+                      💾 Export ▼
+                    </button>
+                    <div style={{
+                      display: 'none',
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      backgroundColor: 'white',
+                      minWidth: '140px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      borderRadius: '6px',
+                      zIndex: 1000,
+                      border: '1px solid #ddd'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.display = 'none';
+                    }}>
+                      <button
+                        onClick={(e) => exportSession(session, 'text', e)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 15px',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          fontSize: '14px',
+                          borderBottom: '1px solid #eee'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        📝 Text File
+                      </button>
+                      <button
+                        onClick={(e) => exportSession(session, 'json', e)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 15px',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          fontSize: '14px',
+                          borderBottom: '1px solid #eee'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        ⚙️ JSON File
+                      </button>
+                      <button
+                        onClick={(e) => exportSession(session, 'print', e)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 15px',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          fontSize: '14px'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        🖨️ Print
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Delete Button */}
+                  <button
+                    onClick={(e) => handleDeleteSession(session.session_id, e)}
+                    disabled={deletingSession === session.session_id}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: deletingSession === session.session_id ? '#6c757d' : '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: deletingSession === session.session_id ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      opacity: deletingSession === session.session_id ? 0.6 : 1
+                    }}
+                  >
+                    {deletingSession === session.session_id ? '🗑️ Deleting...' : '🗑️ Delete'}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
