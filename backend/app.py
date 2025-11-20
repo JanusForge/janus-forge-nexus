@@ -51,11 +51,18 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Janus Forge Nexus API", version="1.0.0")
 
 # CORS middleware
+# Find the CORS configuration in app.py (around line 50-60)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://www.janusforge.ai",
+        "https://janusforge.ai", 
+        "https://janus-forge-nexus-hp9cwyvh7-janusforges-projects.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:3001"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
