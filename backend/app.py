@@ -112,16 +112,48 @@ async def delete_session(session_id: str):
 
 
 
-# AI Integration (Placeholder - integrate with your actual AI services)
+# AI Integration
 async def get_ai_response(ai_name: str, prompt: str) -> str:
     """Get response from actual AI service"""
-    # Replace with your actual AI integrations
-    responses = {
-        "grok": f"🦄 Grok: I'm analyzing '{prompt}'. This is fascinating from my unique perspective!",
-        "gemini": f"🌀 Gemini: Considering '{prompt}', I would approach this with comprehensive analysis.",
-        "deepseek": f"🎯 DeepSeek: Regarding '{prompt}', my focused analysis suggests..."
-    }
-    return responses.get(ai_name, f"AI: I received '{prompt}'")
+    try:
+        print(f"🎯 Calling {ai_name} with prompt: {prompt[:50]}...")
+        
+        if ai_name == "grok":
+            # Grok API integration
+            return await call_grok_api(prompt)
+            
+        elif ai_name == "gemini":
+            # Gemini API integration  
+            return await call_gemini_api(prompt)
+            
+        elif ai_name == "deepseek":
+            # DeepSeek API integration
+            return await call_deepseek_api(prompt)
+            
+        else:
+            return f"[{ai_name}] Unknown AI service"
+            
+    except Exception as e:
+        print(f"💥 {ai_name} API error: {str(e)}")
+        return f"[{ai_name}] Error: {str(e)}"
+
+async def call_grok_api(prompt: str) -> str:
+    """Call Grok API"""
+    # TODO: Implement actual Grok API call
+    # You'll need xAI Grok API credentials
+    return f"🦄 Grok: I've analyzed '{prompt}' and here's my unique take..."
+
+async def call_gemini_api(prompt: str) -> str:
+    """Call Gemini API"""
+    # TODO: Implement actual Gemini API call
+    # You'll need Google AI Studio API key
+    return f"🌀 Gemini: After comprehensive analysis of '{prompt}', I conclude..."
+
+async def call_deepseek_api(prompt: str) -> str:
+    """Call DeepSeek API"""
+    # TODO: Implement actual DeepSeek API call  
+    # You'll need DeepSeek API credentials
+    return f"🎯 DeepSeek: My focused analysis of '{prompt}' reveals..."
 
 # Routes
 @app.get("/")
