@@ -836,6 +836,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
 }
 
 // --- BULK OPERATIONS HISTORY PAGE ---
+// --- BULK OPERATIONS HISTORY PAGE ---
 function HistoryPage({ usage, incrementUsage }) {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
@@ -843,6 +844,7 @@ function HistoryPage({ usage, incrementUsage }) {
   const [deletingSession, setDeletingSession] = useState(null);
   const [error, setError] = useState('');
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [loadingSessions, setLoadingSessions] = useState({});
   
   // Bulk operations state
   const [selectedSessions, setSelectedSessions] = useState([]);
@@ -871,13 +873,39 @@ function HistoryPage({ usage, incrementUsage }) {
     setError('');
     hubClient.get('/sessions')
       .then(response => {
-        setSessions(response.data.sessions || []);
+        const sessionsData = response.data.sessions || [];
+        setSessions(sessionsData);
         setSelectedSessions([]); // Clear selection on refresh
+        
+        // Load detailed data for each session
+        sessionsData.forEach(session => {
+          loadSessionDetails(session.session_id);
+        });
       })
       .catch(error => {
         console.error('Failed to load sessions:', error);
         setError('Failed to load sessions. Please refresh the page.');
       });
+  };
+
+  const loadSessionDetails = async (sessionId) => {
+    setLoadingSessions(prev => ({ ...prev, [sessionId]: true }));
+    
+    try {
+      const response = await hubClient.get(`/session/${sessionId}`);
+      const sessionData = response.data;
+      
+      setSessions(prev => prev.map(session => 
+        session.session_id === sessionId 
+          ? { ...session, ...sessionData, loaded: true }
+          : session
+      ));
+    } catch (error) {
+      console.error(`Failed to load session ${sessionId}:`, error);
+      // Don't show error for individual session failures
+    } finally {
+      setLoadingSessions(prev => ({ ...prev, [sessionId]: false }));
+    }
   };
 
   const handleSessionClick = (sessionId) => {
@@ -964,9 +992,22 @@ function HistoryPage({ usage, incrementUsage }) {
     }
   };
 
-  // Export functions remain the same as before...
+  // Enhanced export functions with actual message content
   const exportAsJSON = (session) => {
-    const dataStr = JSON.stringify(session, null, 2);
+    const exportData = {
+      session_id: session.session_id,
+      created: session.created || session.last_updated,
+      last_updated: session.last_updated,
+      message_count: session.messages ? session.messages.length : 0,
+      messages: session.messages || [],
+      metadata: {
+        exported_from: "Janus Forge Nexus",
+        export_timestamp: new Date().toISOString(),
+        version: "1.0"
+      }
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], {type: 'application/json'});
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
@@ -977,11 +1018,24 @@ function HistoryPage({ usage, incrementUsage }) {
   const exportAsText = (session) => {
     let textContent = `JANUS FORGE NEXUS - SESSION EXPORT\n`;
     textContent += `Session: ${session.session_id}\n`;
-    textContent += `Date: ${new Date(session.last_updated).toLocaleString()}\n`;
-    textContent += `Message Count: ${session.message_count || 'Unknown'}\n`;
+    textContent += `Created: ${new Date(session.created || session.last_updated).toLocaleString()}\n`;
+    textContent += `Last Updated: ${new Date(session.last_updated).toLocaleString()}\n`;
+    textContent += `Message Count: ${session.messages ? session.messages.length : '0'}\n`;
     textContent += `========================================\n\n`;
-    textContent += `Full message export requires loading the session first.\n`;
-    textContent += `Click the session to view messages, then export.`;
+    
+    if (session.messages && session.messages.length > 0) {
+      session.messages.forEach((message, index) => {
+        const sender = message.role === 'user' ? 'You' : message.ai_name || 'AI';
+        const timestamp = new Date(message.timestamp).toLocaleString();
+        
+        textContent += `[${timestamp}] ${sender}:\n`;
+        textContent += `${message.content}\n`;
+        textContent += `----------------------------------------\n\n`;
+      });
+    } else {
+      textContent += `No messages available for this session.\n`;
+      textContent += `Click the session to view messages in the dashboard.\n`;
+    }
 
     const dataBlob = new Blob([textContent], {type: 'text/plain'});
     const link = document.createElement('a');
@@ -993,6 +1047,95 @@ function HistoryPage({ usage, incrementUsage }) {
   const toggleDropdown = (sessionId, e) => {
     if (e) e.stopPropagation();
     setOpenDropdown(openDropdown === sessionId ? null : sessionId);
+  };
+
+  // Function to preview session messages
+  const PreviewMessages = ({ session }) => {
+    if (!session.messages || session.messages.length === 0) {
+      return (
+        <div style={{
+          fontSize: '14px',
+          color: '#666',
+          fontStyle: 'italic',
+          marginTop: '10px'
+        }}>
+          No messages yet. Click to open session.
+        </div>
+      );
+    }
+
+    const previewMessages = session.messages.slice(-3); // Show last 3 messages
+
+    return (
+      <div style={{ marginTop: '10px' }}>
+        <div style={{
+          fontSize: '14px',
+          fontWeight: '600',
+          color: '#333',
+          marginBottom: '8px'
+        }}>
+          Recent Messages:
+        </div>
+        {previewMessages.map((message, index) => {
+          const isUserMessage = message.role === 'user';
+          const aiConfig = AI_MODELS[message.ai_name];
+          
+          return (
+            <div key={index} style={{
+              marginBottom: '8px',
+              padding: '8px',
+              backgroundColor: isUserMessage ? '#e8f4fd' : 
+                             aiConfig ? `${aiConfig.color}10` : '#f8f9fa',
+              borderRadius: '6px',
+              borderLeft: `3px solid ${isUserMessage ? '#007bff' : 
+                            aiConfig ? aiConfig.color : '#6c757d'}`
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '4px'
+              }}>
+                <span style={{
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  color: isUserMessage ? '#007bff' : 
+                         aiConfig ? aiConfig.color : '#6c757d'
+                }}>
+                  {isUserMessage ? '👤 You' : `${aiConfig?.icon || '🤖'} ${aiConfig?.name || message.ai_name || 'AI'}`}
+                </span>
+                <span style={{
+                  fontSize: '11px',
+                  color: '#666'
+                }}>
+                  {new Date(message.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
+              <div style={{
+                fontSize: '13px',
+                color: '#333',
+                lineHeight: '1.4',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {message.content}
+              </div>
+            </div>
+          );
+        })}
+        {session.messages.length > 3 && (
+          <div style={{
+            fontSize: '12px',
+            color: '#666',
+            textAlign: 'center',
+            marginTop: '5px'
+          }}>
+            ... and {session.messages.length - 3} more messages
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -1200,6 +1343,15 @@ function HistoryPage({ usage, incrementUsage }) {
                       wordBreak: 'break-all'
                     }}>
                       {session.session_id}
+                      {loadingSessions[session.session_id] && (
+                        <span style={{
+                          marginLeft: '10px',
+                          fontSize: '12px',
+                          color: '#007bff'
+                        }}>
+                          🔄 Loading...
+                        </span>
+                      )}
                     </div>
                     <div style={{
                       fontSize: isMobile ? '14px' : '15px',
@@ -1212,9 +1364,12 @@ function HistoryPage({ usage, incrementUsage }) {
                         <strong>Last Active:</strong> {formatTimestamp(session.last_updated)}
                       </span>
                       <span>
-                        <strong>Messages:</strong> {session.message_count || '0'}
+                        <strong>Messages:</strong> {session.messages ? session.messages.length : session.message_count || '0'}
                       </span>
                     </div>
+
+                    {/* Message Preview */}
+                    <PreviewMessages session={session} />
                   </div>
                 </div>
 
@@ -1331,6 +1486,8 @@ function HistoryPage({ usage, incrementUsage }) {
     </div>
   );
 }
+
+
 
 // --- DASHBOARD WRAPPER ---
 function DashboardWrapper({ usage, incrementUsage, canCreateSession, onUpgradePrompt }) {
@@ -1602,7 +1759,7 @@ function App() {
               }}>
                 <h2 style={{ fontSize: isMobile ? '20px' : '24px' }}>Contact the Forge</h2>
                 <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                  Email: cassandraleighwilliamson@gmail.com
+                  Email: admin@janusforge.ai
                 </p>
                 <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
                   Join us in building the future of AI collaboration.
