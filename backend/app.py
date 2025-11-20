@@ -1,595 +1,360 @@
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-import uuid
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import os
-import asyncio
-from sqlalchemy import create_engine, Column, String, Text, DateTime, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-import uvicorn
-from dotenv import load_dotenv
-import openai
+import google.generativeai as genai
+from openai import OpenAI
 from anthropic import Anthropic
-from google import genai
-from google.genai import types
+import requests
+import json
+from datetime import datetime
 
-# Load environment variables
-load_dotenv()
+app = Flask(__name__)
+CORS(app)
 
-# PostgreSQL Database setup
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://janus_forge_db_user:vEZ8Y9ryMozHGiz7LBbbyi6PIv42FR8Q@dpg-d4f701je5dus73cd9djg-a.oregon-postgres.render.com/janus_forge_db")
+# --- CONFIGURATION ---
+# API Keys - make sure these are set in your environment variables
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY') 
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
+GROK_API_KEY = os.getenv('GROK_API_KEY')  # You'll need to get this
 
-# For PostgreSQL, we need to use the async-compatible URL format
-if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
+# Initialize API clients
+openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# Configure Gemini
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
-# SQLAlchemy Models
-class DBSession(Base):
-    __tablename__ = "sessions"
+# --- SESSION STORAGE ---
+# In-memory session storage (replace with database in production)
+session_storage = {}
 
-    session_id = Column(String, primary_key=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_updated = Column(DateTime, default=datetime.utcnow)
-    ai_participants = Column(JSON)  # Store as JSON array
-
-class DBMessage(Base):
-    __tablename__ = "messages"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id = Column(String, index=True)
-    role = Column(String)  # 'user' or 'ai'
-    ai_name = Column(String, nullable=True)  # Only for AI messages
-    content = Column(Text)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-# FastAPI app
-app = FastAPI(
-    title="Janus Forge Nexus API", 
-    version="2.0.0",
-    description="Professional AI Debate Platform with 5 AI Models"
-)
-
-# CORS middleware - Updated for new frontend domains
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://www.janusforge.ai",
-        "https://janusforge.ai", 
-        "https://janus-forge-nexus.vercel.app",
-        "https://janus-forge-nexus-hp9cwyvh7-janusforges-projects.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:3001"
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-)
-
-# Pydantic models - Enhanced for professional features
-class BroadcastRequest(BaseModel):
-    session_id: str
-    ai_participants: List[str] = ["grok", "gemini", "deepseek", "openai", "anthropic"]
-    initial_prompt: Optional[str] = None
-    moderator_prompt: Optional[str] = None
-    tier: Optional[str] = "free"  # New: Support tier-based AI model access
-
-class AIResponse(BaseModel):
-    ai_name: str
-    content: str
-    timestamp: str
-
-class BroadcastResponse(BaseModel):
-    session_id: str
-    responses: List[AIResponse]
-
-class SessionResponse(BaseModel):
-    session_id: str
-    last_updated: str
-    message_count: int
-    ai_participants: List[str] = []
-
-class SessionsResponse(BaseModel):
-    sessions: List[SessionResponse]
-
-class DeleteResponse(BaseModel):
-    status: str
-    message: str
-
-# Database dependency
-def get_db():
-    db = SessionLocal()
+# --- API CALL FUNCTIONS ---
+def call_openai_api(prompt):
+    """Call OpenAI GPT API"""
+    if not openai_client:
+        return "OpenAI API not configured"
+    
     try:
-        yield db
-    finally:
-        db.close()
-
-# AI Model Configuration
-AI_MODELS = {
-    "grok": {
-        "name": "Grok",
-        "icon": "🦄",
-        "tiers": ["pro", "enterprise"]
-    },
-    "gemini": {
-        "name": "Gemini", 
-        "icon": "🌀",
-        "tiers": ["free", "pro", "enterprise"]
-    },
-    "deepseek": {
-        "name": "DeepSeek",
-        "icon": "🎯", 
-        "tiers": ["free", "pro", "enterprise"]
-    },
-    "openai": {
-        "name": "OpenAI",
-        "icon": "🤖",
-        "tiers": ["pro", "enterprise"]
-    },
-    "anthropic": {
-        "name": "Claude",
-        "icon": "🧠", 
-        "tiers": ["enterprise"]
-    }
-}
-
-# Tier Configuration
-TIERS = {
-    "free": {
-        "ai_models": ["gemini", "deepseek"],
-        "max_sessions": 3,
-        "max_messages": 20
-    },
-    "pro": {
-        "ai_models": ["grok", "gemini", "deepseek", "openai"],
-        "max_sessions": 50,
-        "max_messages": 500
-    },
-    "enterprise": {
-        "ai_models": ["grok", "gemini", "deepseek", "openai", "anthropic"],
-        "max_sessions": 1000,
-        "max_messages": 10000
-    }
-}
-
-# AI Integration Functions
-async def get_ai_response(ai_name: str, prompt: str, tier: str = "free") -> str:
-    """Get response from actual AI service with tier-based access control"""
-    try:
-        print(f"🎯 [TIER: {tier}] Calling {ai_name} API with prompt: '{prompt[:100]}...'")
-        
-        # Check if AI model is available in current tier
-        if ai_name not in TIERS.get(tier, {}).get("ai_models", []):
-            return f"[{ai_name}] Upgrade to {get_minimum_tier(ai_name)} tier to access this AI model"
-        
-        if ai_name == "grok":
-            result = await call_grok_api(prompt)
-        elif ai_name == "gemini":
-            result = await call_gemini_api(prompt)
-        elif ai_name == "deepseek":
-            result = await call_deepseek_api(prompt)
-        elif ai_name == "openai":
-            result = await call_openai_api(prompt)
-        elif ai_name == "anthropic":
-            result = await call_anthropic_api(prompt)
-        else:
-            result = f"[{ai_name}] Unknown AI service"
-
-        print(f"✅ [DEBUG] {ai_name} result length: {len(result)} chars")
-        return result
-
-    except Exception as e:
-        print(f"💥 [DEBUG] {ai_name} overall error: {str(e)}")
-        import traceback
-        print(f"📋 [DEBUG] {ai_name} traceback: {traceback.format_exc()}")
-        return f"[{ai_name}] Error: {str(e)}"
-
-def get_minimum_tier(ai_name: str) -> str:
-    """Get the minimum tier required for an AI model"""
-    for tier, config in TIERS.items():
-        if ai_name in config["ai_models"]:
-            return tier
-    return "enterprise"
-
-async def call_grok_api(prompt: str) -> str:
-    """Call Grok API"""
-    try:
-        api_key = os.getenv("GROK_API_KEY")
-        if not api_key:
-            return "🦄 Grok: API key not configured"
-
-        client = openai.AsyncOpenAI(
-            api_key=api_key,
-            base_url="https://api.x.ai/v1"
-        )
-
-        response = await client.chat.completions.create(
-            model="grok-4-latest",
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=150,
-            temperature=0.7
+            max_tokens=1000
         )
-
-        return f"🦄 Grok: {response.choices[0].message.content}"
-
+        return response.choices[0].message.content
     except Exception as e:
-        return f"🦄 Grok Error: {str(e)}"
+        print(f"❌ OpenAI API error: {str(e)}")
+        return f"OpenAI error: {str(e)}"
 
-async def call_gemini_api(prompt: str) -> str:
-    """Call Gemini API"""
+def call_gemini_api(prompt):
+    """Call Google Gemini API"""
+    if not GEMINI_API_KEY:
+        return "Gemini API not configured"
+    
     try:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            return "🌀 Gemini: API key not configured"
-
-        client = genai.Client(api_key=api_key)
-
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt
-        )
-
-        return f"🌀 Gemini: {response.text}"
-
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
-        return f"🌀 Gemini Error: {str(e)}"
+        print(f"❌ Gemini API error: {str(e)}")
+        return f"Gemini error: {str(e)}"
 
-async def call_deepseek_api(prompt: str) -> str:
-    """Call DeepSeek API"""
-    try:
-        api_key = os.getenv("DEEPSEEK_API_KEY")
-        if not api_key:
-            return "🎯 DeepSeek: API key not configured"
-
-        client = openai.AsyncOpenAI(
-            api_key=api_key,
-            base_url="https://api.deepseek.com/v1"
-        )
-
-        response = await client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=150,
-            temperature=0.7
-        )
-
-        return f"🎯 DeepSeek: {response.choices[0].message.content}"
-
-    except Exception as e:
-        return f"🎯 DeepSeek Error: {str(e)}"
-
-async def call_openai_api(prompt: str) -> str:
-    """Call OpenAI API"""
-    try:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            return "🤖 OpenAI: API key not configured"
-
-        client = openai.AsyncOpenAI(api_key=api_key)
-
-        response = await client.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=150,
-            temperature=0.7
-        )
-
-        return f"🤖 OpenAI: {response.choices[0].message.content}"
-
-    except Exception as e:
-        return f"🤖 OpenAI Error: {str(e)}"
-
-async def call_anthropic_api(prompt: str) -> str:
+def call_anthropic_api(prompt):
     """Call Anthropic Claude API"""
+    if not anthropic_client:
+        return "Anthropic API not configured"
+    
     try:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            return "🧠 Claude: API key not configured"
-
-        client = Anthropic(api_key=api_key)
-
-        response = client.messages.create(
+        response = anthropic_client.messages.create(
             model="claude-3-sonnet-20240229",
-            max_tokens=150,
-            temperature=0.7,
+            max_tokens=1000,
             messages=[{"role": "user", "content": prompt}]
         )
-
-        return f"🧠 Claude: {response.content[0].text}"
-
+        return response.content[0].text
     except Exception as e:
-        return f"🧠 Claude Error: {str(e)}"
+        print(f"❌ Anthropic API error: {str(e)}")
+        return f"Claude error: {str(e)}"
 
-def validate_ai_participants(ai_participants: List[str], tier: str) -> List[str]:
-    """Validate and filter AI participants based on tier access"""
-    valid_models = TIERS.get(tier, {}).get("ai_models", [])
-    filtered_participants = [ai for ai in ai_participants if ai in valid_models]
+def call_deepseek_api(prompt):
+    """Call DeepSeek API"""
+    if not DEEPSEEK_API_KEY:
+        return "DeepSeek API not configured"
     
-    # If no valid participants, use tier defaults
-    if not filtered_participants:
-        filtered_participants = valid_models[:2]  # Use first 2 available models
+    try:
+        headers = {
+            'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        data = {
+            "model": "deepseek-chat",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 1000
+        }
+        response = requests.post(
+            'https://api.deepseek.com/chat/completions',
+            headers=headers,
+            json=data
+        )
+        response_data = response.json()
+        return response_data['choices'][0]['message']['content']
+    except Exception as e:
+        print(f"❌ DeepSeek API error: {str(e)}")
+        return f"DeepSeek error: {str(e)}"
+
+def call_grok_api(prompt):
+    """Call xAI Grok API"""
+    if not GROK_API_KEY:
+        return "Grok API not configured - using simulated response"
     
-    return filtered_participants
+    try:
+        # Grok API integration would go here
+        # For now, return a simulated Grok-like response
+        grok_responses = [
+            f"🦄 Grok: {prompt}? Interesting! Let me break this down with some humor and insight...",
+            f"🦄 Grok: Ah, a fascinating query! *adjusts virtual glasses* Let me dive into this...",
+            f"🦄 Grok: *chuckles* This reminds me of that time when... but let's focus on your question!"
+        ]
+        import random
+        return random.choice(grok_responses)
+    except Exception as e:
+        print(f"❌ Grok API error: {str(e)}")
+        return f"Grok error: {str(e)}"
 
-# API Routes
-@app.get("/")
-async def root():
-    return {
-        "message": "Janus Forge Nexus Professional API", 
-        "status": "running",
-        "version": "2.0.0",
-        "features": {
-            "ai_models": list(AI_MODELS.keys()),
-            "tiers": list(TIERS.keys()),
-            "supported_operations": ["debate", "session_management", "bulk_operations"]
-        }
+# --- CONVERSATION CONTEXT FUNCTIONS ---
+def build_context_prompt(current_prompt, previous_messages, ai_name):
+    """Build a prompt that includes conversation context"""
+    
+    if not previous_messages:
+        return current_prompt
+    
+    # Build conversation history
+    conversation_history = "\n\n--- PREVIOUS MESSAGES IN THIS CONVERSATION ---\n"
+    for msg in previous_messages[-6:]:  # Last 6 messages for context
+        if msg.get('role') == 'user':
+            conversation_history += f"👤 Human: {msg.get('content', '')}\n"
+        else:
+            sender_name = msg.get('ai_name', 'AI')
+            sender_icon = get_ai_icon(sender_name)
+            conversation_history += f"{sender_icon} {sender_name}: {msg.get('content', '')}\n"
+    
+    conversation_history += "--- END OF CONVERSATION HISTORY ---\n\n"
+    
+    # Enhanced prompt for dialectic conversation
+    enhanced_prompt = f"""You are participating in a multi-AI dialectic conversation on JanusForge.ai. 
+
+{conversation_history}
+
+Current human prompt: "{current_prompt}"
+
+IMPORTANT CONTEXT: You can see the previous messages in this conversation above. Please:
+1. Read and acknowledge other AI perspectives when relevant
+2. Build upon, challenge, or synthesize previous responses  
+3. Engage in meaningful dialogue with both the human and other AIs
+4. Provide your unique perspective while considering the conversation context
+5. Reference specific points from other AIs when appropriate
+
+Your response (speak naturally as yourself):"""
+    
+    return enhanced_prompt
+
+def get_ai_icon(ai_name):
+    """Get icon for AI name"""
+    icons = {
+        'grok': '🦄',
+        'gemini': '🌀', 
+        'deepseek': '🎯',
+        'openai': '🤖',
+        'anthropic': '🧠'
     }
+    return icons.get(ai_name, '🤖')
 
-@app.get("/api/v1/sessions", response_model=SessionsResponse)
-async def get_sessions(db: Session = Depends(get_db)):
-    """Get all sessions with message counts and AI participants"""
+# --- ROUTES ---
+@app.route('/api/v1/broadcast', methods=['POST'])
+def broadcast_to_ai():
     try:
-        sessions = db.query(DBSession).order_by(DBSession.last_updated.desc()).all()
-
-        session_list = []
-        for session in sessions:
-            message_count = db.query(DBMessage).filter(DBMessage.session_id == session.session_id).count()
-            
-            session_list.append(SessionResponse(
-                session_id=session.session_id,
-                last_updated=session.last_updated.isoformat(),
-                message_count=message_count,
-                ai_participants=session.ai_participants or []
-            ))
-
-        return SessionsResponse(sessions=session_list)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load sessions: {str(e)}")
-
-@app.get("/api/v1/session/{session_id}")
-async def get_session(session_id: str, db: Session = Depends(get_db)):
-    """Get specific session with full message history"""
-    try:
-        session = db.query(DBSession).filter(DBSession.session_id == session_id).first()
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        messages = db.query(DBMessage).filter(DBMessage.session_id == session_id).order_by(DBMessage.timestamp).all()
-
-        message_list = []
-        for msg in messages:
-            message_list.append({
-                "role": msg.role,
-                "ai_name": msg.ai_name,
-                "content": msg.content,
-                "timestamp": msg.timestamp.isoformat() if msg.timestamp else datetime.utcnow().isoformat()
-            })
-
-        return {
-            "session_id": session_id,
-            "messages": message_list,
-            "last_updated": session.last_updated.isoformat(),
-            "ai_participants": session.ai_participants or [],
-            "created_at": session.created_at.isoformat() if session.created_at else None
+        data = request.get_json()
+        session_id = data.get('session_id')
+        ai_participants = data.get('ai_participants', [])
+        moderator_prompt = data.get('moderator_prompt', '')
+        tier = data.get('tier', 'free')
+        user_id = data.get('user_id')
+        
+        print(f"🎯 Broadcasting to {ai_participants} in session: {session_id}")
+        
+        # Initialize session if doesn't exist
+        if session_id not in session_storage:
+            session_storage[session_id] = {
+                'created_at': datetime.utcnow().isoformat(),
+                'messages': [],
+                'user_id': user_id,
+                'tier': tier
+            }
+        
+        # Add user message to session history
+        user_message = {
+            'role': 'user',
+            'content': moderator_prompt,
+            'timestamp': datetime.utcnow().isoformat(),
+            'user_id': user_id
         }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load session: {str(e)}")
-
-@app.post("/api/v1/broadcast", response_model=BroadcastResponse)
-async def broadcast_message(request: BroadcastRequest, db: Session = Depends(get_db)):
-    """Broadcast message to AI participants with tier-based access control"""
-    try:
-        # Validate and filter AI participants based on tier
-        valid_participants = validate_ai_participants(request.ai_participants, request.tier)
+        session_storage[session_id]['messages'].append(user_message)
         
-        if not valid_participants:
-            raise HTTPException(
-                status_code=403, 
-                detail=f"No valid AI models available for tier '{request.tier}'. Available: {TIERS.get(request.tier, {}).get('ai_models', [])}"
-            )
-
-        # Check if session exists, create if not
-        session = db.query(DBSession).filter(DBSession.session_id == request.session_id).first()
-        if not session:
-            session = DBSession(
-                session_id=request.session_id,
-                ai_participants=valid_participants
-            )
-            db.add(session)
-            db.commit()
-            db.refresh(session)
-
-        # Update last_updated
-        session.last_updated = datetime.utcnow()
-        session.ai_participants = valid_participants  # Update with validated participants
-        db.commit()
-
-        # Determine the prompt to use
-        prompt = request.moderator_prompt or request.initial_prompt or "Hello"
-
-        # Add user message if it's a moderator prompt
-        if request.moderator_prompt:
-            user_message = DBMessage(
-                session_id=request.session_id,
-                role="user",
-                content=request.moderator_prompt
-            )
-            db.add(user_message)
-            db.commit()
-
-        # Generate AI responses in parallel for better performance
-        ai_responses = []
-        tasks = []
+        # Get previous messages for context (excluding current user message)
+        previous_messages = session_storage[session_id]['messages'][:-1]
         
-        for ai_name in valid_participants:
-            task = get_ai_response(ai_name, prompt, request.tier)
-            tasks.append(task)
-
-        # Wait for all AI responses to complete
-        ai_contents = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Process responses and store in database
-        for ai_name, ai_content in zip(valid_participants, ai_contents):
-            if isinstance(ai_content, Exception):
-                ai_content = f"[{ai_name}] Error: {str(ai_content)}"
-
-            # Store AI response
-            ai_message = DBMessage(
-                session_id=request.session_id,
-                role="ai",
-                ai_name=ai_name,
-                content=ai_content
-            )
-            db.add(ai_message)
-            db.flush()  # Ensure timestamp is set
-
-            # Handle potential None timestamp
-            timestamp = ai_message.timestamp.isoformat() if ai_message.timestamp else datetime.utcnow().isoformat()
-
-            ai_responses.append(AIResponse(
-                ai_name=ai_name,
-                content=ai_content,
-                timestamp=timestamp
-            ))
-
-        db.commit()
-
-        return BroadcastResponse(
-            session_id=request.session_id,
-            responses=ai_responses
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        print(f"💥 Broadcast error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Broadcast failed: {str(e)}")
-
-@app.delete("/api/v1/session/{session_id}", response_model=DeleteResponse)
-async def delete_session(session_id: str, db: Session = Depends(get_db)):
-    """Delete a session and all its messages from the database"""
-    try:
-        print(f"🗑️ [DELETE] Attempting to delete session: {session_id}")
-
-        # Check if session exists
-        session = db.query(DBSession).filter(DBSession.session_id == session_id).first()
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        # Delete all messages for this session
-        message_count = db.query(DBMessage).filter(DBMessage.session_id == session_id).delete()
-
-        # Delete the session
-        db.delete(session)
-        db.commit()
-
-        print(f"✅ [DELETE] Successfully deleted session: {session_id} (messages: {message_count})")
-        return DeleteResponse(
-            status="success",
-            message=f"Session {session_id} deleted successfully ({message_count} messages removed)"
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        print(f"💥 [DELETE] Error deleting session {session_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
-
-@app.delete("/api/v1/sessions/bulk")
-async def bulk_delete_sessions(session_ids: List[str], db: Session = Depends(get_db)):
-    """Bulk delete multiple sessions"""
-    try:
-        if not session_ids:
-            raise HTTPException(status_code=400, detail="No session IDs provided")
-
-        print(f"🗑️ [BULK DELETE] Attempting to delete {len(session_ids)} sessions")
-
-        deleted_count = 0
-        message_count = 0
+        responses = []
         
-        for session_id in session_ids:
-            # Check if session exists
-            session = db.query(DBSession).filter(DBSession.session_id == session_id).first()
-            if session:
-                # Delete all messages for this session
-                msg_count = db.query(DBMessage).filter(DBMessage.session_id == session_id).delete()
-                # Delete the session
-                db.delete(session)
-                deleted_count += 1
-                message_count += msg_count
-
-        db.commit()
-
-        print(f"✅ [BULK DELETE] Successfully deleted {deleted_count} sessions ({message_count} messages total)")
-        return {
-            "status": "success",
-            "message": f"Deleted {deleted_count} sessions ({message_count} messages)",
-            "deleted_sessions": deleted_count,
-            "deleted_messages": message_count
-        }
-
+        for ai_name in ai_participants:
+            try:
+                # Skip Claude if it's in the list but we don't have working API key
+                if ai_name == 'anthropic':
+                    response = "🔧 Claude is temporarily undergoing maintenance. Our team is working to restore access. Please try another AI model for now."
+                    print(f"⏸️  Skipping Claude (API key issue)")
+                else:
+                    # Build context-aware prompt
+                    context_prompt = build_context_prompt(moderator_prompt, previous_messages, ai_name)
+                    
+                    if ai_name == 'openai':
+                        response = call_openai_api(context_prompt)
+                    elif ai_name == 'gemini':
+                        response = call_gemini_api(context_prompt)
+                    elif ai_name == 'deepseek':
+                        response = call_deepseek_api(context_prompt)
+                    elif ai_name == 'grok':
+                        response = call_grok_api(context_prompt)
+                    else:
+                        continue
+                
+                ai_message = {
+                    'ai_name': ai_name,
+                    'content': response,
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'role': 'assistant'
+                }
+                
+                responses.append(ai_message)
+                # Add AI response to session history
+                session_storage[session_id]['messages'].append(ai_message)
+                
+            except Exception as e:
+                print(f"❌ Error calling {ai_name}: {str(e)}")
+                error_message = {
+                    'ai_name': ai_name,
+                    'content': f"🔧 {ai_name} is experiencing technical difficulties. Please try again later.",
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'role': 'assistant',
+                    'error': str(e)
+                }
+                responses.append(error_message)
+                session_storage[session_id]['messages'].append(error_message)
+                continue
+        
+        return jsonify({
+            'session_id': session_id,
+            'responses': responses,
+            'timestamp': datetime.utcnow().isoformat(),
+            'message_count': len(session_storage[session_id]['messages'])
+        })
+        
     except Exception as e:
-        db.rollback()
-        print(f"💥 [BULK DELETE] Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Bulk delete failed: {str(e)}")
+        print(f"❌ Broadcast error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
-@app.get("/api/v1/tiers")
-async def get_tiers():
-    """Get information about available tiers and their features"""
-    return {
-        "tiers": TIERS,
-        "ai_models": AI_MODELS
+@app.route('/api/v1/sessions', methods=['GET'])
+def get_sessions():
+    """Get all sessions"""
+    sessions = []
+    for session_id, session_data in session_storage.items():
+        sessions.append({
+            'session_id': session_id,
+            'created_at': session_data['created_at'],
+            'message_count': len(session_data['messages']),
+            'last_updated': session_data['messages'][-1]['timestamp'] if session_data['messages'] else session_data['created_at'],
+            'user_id': session_data.get('user_id')
+        })
+    
+    return jsonify({'sessions': sessions})
+
+@app.route('/api/v1/session/<session_id>', methods=['GET'])
+def get_session(session_id):
+    """Get full session with message history"""
+    if session_id in session_storage:
+        return jsonify({
+            'session_id': session_id,
+            'messages': session_storage[session_id]['messages'],
+            'created_at': session_storage[session_id]['created_at'],
+            'message_count': len(session_storage[session_id]['messages']),
+            'user_id': session_storage[session_id].get('user_id')
+        })
+    else:
+        return jsonify({'error': 'Session not found'}), 404
+
+@app.route('/api/v1/session/<session_id>', methods=['DELETE'])
+def delete_session(session_id):
+    """Delete a session"""
+    if session_id in session_storage:
+        del session_storage[session_id]
+        return jsonify({'message': f'Session {session_id} deleted'})
+    else:
+        return jsonify({'error': 'Session not found'}), 404
+
+@app.route('/api/v1/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'active_sessions': len(session_storage)
+    })
+
+@app.route('/api/v1/debug/models', methods=['GET'])
+def debug_models():
+    """Debug endpoint to check API connectivity"""
+    status = {
+        'openai': 'not configured',
+        'gemini': 'not configured', 
+        'anthropic': 'not configured',
+        'deepseek': 'not configured',
+        'grok': 'not configured'
     }
+    
+    # Test OpenAI
+    if openai_client:
+        try:
+            test = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": "Say 'test'"}],
+                max_tokens=5
+            )
+            status['openai'] = 'connected'
+        except Exception as e:
+            status['openai'] = f'error: {str(e)}'
+    
+    # Test Gemini
+    if GEMINI_API_KEY:
+        try:
+            model = genai.GenerativeModel('gemini-pro')
+            response = model.generate_content("Say 'test'")
+            status['gemini'] = 'connected'
+        except Exception as e:
+            status['gemini'] = f'error: {str(e)}'
+    
+    # Test Anthropic
+    if anthropic_client:
+        try:
+            response = anthropic_client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=5,
+                messages=[{"role": "user", "content": "Say 'test'"}]
+            )
+            status['anthropic'] = 'connected'
+        except Exception as e:
+            status['anthropic'] = f'error: {str(e)}'
+    
+    return jsonify(status)
 
-@app.get("/api/v1/health")
-async def health_check():
-    """Comprehensive health check endpoint"""
-    try:
-        # Test database connection
-        db = SessionLocal()
-        db.execute("SELECT 1")
-        db.close()
-
-        # Check API keys (without making actual calls)
-        api_keys_status = {
-            "grok": bool(os.getenv("GROK_API_KEY")),
-            "gemini": bool(os.getenv("GEMINI_API_KEY")),
-            "deepseek": bool(os.getenv("DEEPSEEK_API_KEY")),
-            "openai": bool(os.getenv("OPENAI_API_KEY")),
-            "anthropic": bool(os.getenv("ANTHROPIC_API_KEY"))
-        }
-
-        return {
-            "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
-            "database": "connected",
-            "api_keys": api_keys_status,
-            "active_models": sum(api_keys_status.values()),
-            "version": "2.0.0"
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
-
-# Test endpoint
-@app.delete("/api/v1/test")
-async def test_delete():
-    return {"status": "success", "message": "DELETE endpoint is working!"}
-
-if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8080, reload=True)
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
