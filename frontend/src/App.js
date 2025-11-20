@@ -805,7 +805,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
             sessionId={sessionId}
             isSending={status.includes('Sending') || status.includes('Broadcasting')}
             usage={usage}
-            canSendMessage={canSendMessage}
+            canSendMessage={canSendMessage()}
             onUpgradePrompt={onUpgradePrompt}
           />
         )}
@@ -1338,7 +1338,7 @@ function DashboardWrapper({ usage, incrementUsage, canCreateSession, onUpgradePr
     sessionIdFromUrl={sessionId} 
     usage={usage}
     incrementUsage={incrementUsage}
-    canCreateSession={canCreateSession}
+    canCreateSession={canCreateSession()}
     onUpgradePrompt={onUpgradePrompt}
   />;
 }
@@ -1601,7 +1601,7 @@ function App() {
               }}>
                 <h2 style={{ fontSize: isMobile ? '20px' : '24px' }}>Contact the Forge</h2>
                 <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                  Email: webmaster@janusforge.ai
+                  Email: cassandraleighwilliamson@gmail.com
                 </p>
                 <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
                   Join us in building the future of AI collaboration.
