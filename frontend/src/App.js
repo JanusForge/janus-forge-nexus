@@ -331,7 +331,7 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
   const handleSubmit = () => {
     const trimmedPrompt = localPrompt.trim();
     if (trimmedPrompt && sessionId && !isSending) {
-      if (!canSendMessage()) {
+      if (!canSendMessage) {
         onUpgradePrompt();
         return;
       }
@@ -385,14 +385,14 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
         onChange={(e) => setLocalPrompt(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={sessionId ? 
-          (canSendMessage() ? 
+          (canSendMessage ? 
             "Type your message to the AI ensemble... (Press Enter to send)" : 
             "Message limit reached - upgrade to continue") : 
           "Create a session first..."}
-        disabled={!sessionId || isSending || !canSendMessage()}
+        disabled={!sessionId || isSending || !canSendMessage}
         style={{
           padding: '12px 16px',
-          border: `2px solid ${sessionId && canSendMessage() ? '#007bff' : '#6c757d'}`,
+          border: `2px solid ${sessionId && canSendMessage ? '#007bff' : '#6c757d'}`,
           borderRadius: '8px',
           fontSize: '16px',
           outline: 'none',
@@ -402,7 +402,7 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
           backgroundColor: 'white',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           transition: 'all 0.2s ease',
-          opacity: sessionId && canSendMessage() ? 1 : 0.7,
+          opacity: sessionId && canSendMessage ? 1 : 0.7,
           resize: 'vertical',
           fontFamily: 'inherit',
           lineHeight: '1.4'
@@ -411,24 +411,24 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
 
       <button
         onClick={handleSubmit}
-        disabled={!sessionId || !localPrompt.trim() || isSending || !canSendMessage()}
+        disabled={!sessionId || !localPrompt.trim() || isSending || !canSendMessage}
         style={{
           padding: '12px 24px',
-          backgroundColor: sessionId && localPrompt.trim() && !isSending && canSendMessage() ? 
+          backgroundColor: sessionId && localPrompt.trim() && !isSending && canSendMessage ? 
             TIERS[usage.currentTier].color : '#6c757d',
           color: 'white',
           border: 'none',
           borderRadius: '8px',
           fontSize: '16px',
           fontWeight: '600',
-          cursor: sessionId && localPrompt.trim() && !isSending && canSendMessage() ? 'pointer' : 'not-allowed',
+          cursor: sessionId && localPrompt.trim() && !isSending && canSendMessage ? 'pointer' : 'not-allowed',
           transition: 'all 0.2s ease',
           width: '100%',
-          opacity: sessionId && localPrompt.trim() && !isSending && canSendMessage() ? 1 : 0.6
+          opacity: sessionId && localPrompt.trim() && !isSending && canSendMessage ? 1 : 0.6
         }}
       >
         {isSending ? '🔄 Broadcasting...' : 
-         !canSendMessage() ? '💎 Upgrade to Continue' : '🚀 Send to AI Ensemble'}
+         !canSendMessage ? '💎 Upgrade to Continue' : '🚀 Send to AI Ensemble'}
       </button>
 
       <div style={{
@@ -437,7 +437,7 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
         textAlign: 'center',
         marginTop: '5px'
       }}>
-        {canSendMessage() ? 'Press Enter to send • Shift+Enter for new line' : 'Upgrade for unlimited messages'}
+        {canSendMessage ? 'Press Enter to send • Shift+Enter for new line' : 'Upgrade for unlimited messages'}
       </div>
     </div>
   );
@@ -472,7 +472,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
   }, []);
 
   const handleNewSession = () => {
-    if (!canCreateSession()) {
+    if (!canCreateSession) {
       onUpgradePrompt();
       return;
     }
@@ -483,7 +483,8 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
     hubClient.post('/broadcast', {
       session_id: newSessionId,
       ai_participants: participants,
-      initial_prompt: "Session initialized - ready for prompts!"
+      initial_prompt: "Session initialized - ready for prompts!",
+      tier: usage.currentTier
     })
     .then(response => {
       setSessionId(newSessionId);
@@ -528,7 +529,8 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
     hubClient.post('/broadcast', {
       session_id: sessionId,
       ai_participants: participants,
-      moderator_prompt: promptText
+      moderator_prompt: promptText,
+      tier: usage.currentTier
     })
     .then(response => {
       const broadcastData = response.data;
@@ -593,7 +595,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
               Messages: {usage.messagesSent}/{TIERS[usage.currentTier].messageLimit}
             </div>
           </div>
-          {!canCreateSession() && (
+          {!canCreateSession && (
             <button
               onClick={onUpgradePrompt}
               style={{
@@ -625,22 +627,22 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
           <div style={{ textAlign: 'center' }}>
             <button
               onClick={handleNewSession}
-              disabled={!canCreateSession()}
+              disabled={!canCreateSession}
               style={{
                 padding: isMobile ? '14px 20px' : '16px 32px',
-                backgroundColor: canCreateSession() ? TIERS[usage.currentTier].color : '#6c757d',
+                backgroundColor: canCreateSession ? TIERS[usage.currentTier].color : '#6c757d',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
                 fontSize: isMobile ? '16px' : '18px',
                 fontWeight: '600',
-                cursor: canCreateSession() ? 'pointer' : 'not-allowed',
+                cursor: canCreateSession ? 'pointer' : 'not-allowed',
                 width: isMobile ? '100%' : 'auto',
                 minWidth: isMobile ? 'auto' : '200px',
-                opacity: canCreateSession() ? 1 : 0.6
+                opacity: canCreateSession ? 1 : 0.6
               }}
             >
-              {canCreateSession() ? '🚀 Start New Session' : '💎 Upgrade to Create Sessions'}
+              {canCreateSession ? '🚀 Start New Session' : '💎 Upgrade to Create Sessions'}
             </button>
             <p style={{
               margin: '12px 0 0 0',
@@ -648,7 +650,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
               color: '#666',
               textAlign: 'center'
             }}>
-              {canCreateSession() ? 
+              {canCreateSession ? 
                 `Create a session with ${participants.length} AI models` : 
                 'Upgrade your plan to create more sessions'}
             </p>
@@ -1599,7 +1601,7 @@ function App() {
               }}>
                 <h2 style={{ fontSize: isMobile ? '20px' : '24px' }}>Contact the Forge</h2>
                 <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                  Email: cassandraleighwilliamson@gmail.com
+                  Email: webmaster@janusforge.ai
                 </p>
                 <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
                   Join us in building the future of AI collaboration.
