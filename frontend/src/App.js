@@ -9,6 +9,98 @@ const hubClient = axios.create({
   baseURL: API_BASE_URL,
 });
 
+// --- AUTHENTICATION MANAGEMENT ---
+const useAuth = () => {
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('janusForgeUser');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('janusForgeUser', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('janusForgeUser');
+    }
+  }, [user]);
+
+  const login = async (email, password) => {
+    setIsLoading(true);
+    setAuthError('');
+    
+    try {
+      // For now, simulate login - replace with actual backend auth
+      const userData = {
+        id: 'user_' + Date.now(),
+        email,
+        name: email.split('@')[0],
+        tier: 'free',
+        joined: new Date().toISOString()
+      };
+      
+      setUser(userData);
+      return { success: true, user: userData };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Login failed';
+      setAuthError(message);
+      return { success: false, error: message };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signup = async (email, password, name) => {
+    setIsLoading(true);
+    setAuthError('');
+    
+    try {
+      // For now, simulate signup - replace with actual backend auth
+      const userData = {
+        id: 'user_' + Date.now(),
+        email,
+        name: name || email.split('@')[0],
+        tier: 'free',
+        joined: new Date().toISOString()
+      };
+      
+      setUser(userData);
+      return { success: true, user: userData };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Signup failed';
+      setAuthError(message);
+      return { success: false, error: message };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('janusForgeUser');
+    localStorage.removeItem('janusForgeUsage');
+    localStorage.removeItem('janusForgeOnboardingCompleted');
+  };
+
+  const upgradeAccount = (newTier) => {
+    if (user) {
+      setUser(prev => ({ ...prev, tier: newTier }));
+    }
+  };
+
+  return {
+    user,
+    isLoading,
+    authError,
+    login,
+    signup,
+    logout,
+    upgradeAccount
+  };
+};
+
 // --- TIER MANAGEMENT ---
 const TIERS = {
   free: {
@@ -16,27 +108,30 @@ const TIERS = {
     sessionLimit: 3,
     messageLimit: 20,
     aiModels: ['gemini', 'deepseek'],
-    features: ["2 AI Models", "Basic Debate", "Session History"],
+    features: ["2 AI Models", "Basic Debate", "Session History", "User Account"],
     color: "#6c757d",
-    price: "Free"
+    price: "Free",
+    requiresAuth: true
   },
   pro: {
     name: "Scholar", 
     sessionLimit: 50,
     messageLimit: 500,
     aiModels: ['grok', 'gemini', 'deepseek', 'openai'],
-    features: ["4 AI Models", "Advanced Controls", "Export Features", "Priority Support"],
+    features: ["4 AI Models", "Advanced Controls", "Export Features", "Priority Support", "User Account"],
     color: "#007bff",
-    price: "$29/month"
+    price: "$29/month",
+    requiresAuth: true
   },
   enterprise: {
     name: "Master",
     sessionLimit: 1000,
     messageLimit: 10000,
     aiModels: ['grok', 'gemini', 'deepseek', 'openai', 'anthropic'],
-    features: ["All 5 AI Models", "API Access", "White Label", "Dedicated Support"],
+    features: ["All 5 AI Models", "API Access", "White Label", "Dedicated Support", "User Account"],
     color: "#28a745",
-    price: "$99/month"
+    price: "$99/month",
+    requiresAuth: true
   }
 };
 
@@ -80,20 +175,20 @@ const AI_MODELS = {
 };
 
 // --- USAGE TRACKING HOOK ---
-function useUsageTracker() {
+function useUsageTracker(user) {
   const [usage, setUsage] = useState(() => {
-    const saved = localStorage.getItem('janusForgeUsage');
+    const saved = localStorage.getItem(`janusForgeUsage_${user?.id || 'anonymous'}`);
     return saved ? JSON.parse(saved) : {
       sessionsCreated: 0,
       messagesSent: 0,
-      currentTier: 'free',
+      currentTier: user?.tier || 'free',
       tierStartDate: new Date().toISOString()
     };
   });
 
   useEffect(() => {
-    localStorage.setItem('janusForgeUsage', JSON.stringify(usage));
-  }, [usage]);
+    localStorage.setItem(`janusForgeUsage_${user?.id || 'anonymous'}`, JSON.stringify(usage));
+  }, [usage, user]);
 
   const incrementUsage = (type, amount = 1) => {
     setUsage(prev => ({
@@ -121,15 +216,219 @@ function useUsageTracker() {
   return { usage, incrementUsage, canCreateSession, canSendMessage, upgradeTier };
 }
 
+// --- AUTH MODAL COMPONENT ---
+function AuthModal({ isOpen, onClose, onLogin, onSignup, isLoading, error }) {
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    name: ''
+  });
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isLoginMode) {
+      onLogin(formData.email, formData.password);
+    } else {
+      onSignup(formData.email, formData.password, formData.name);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
+  const switchMode = () => {
+    setIsLoginMode(!isLoginMode);
+    setFormData({ email: '', password: '', name: '' });
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      zIndex: 1000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '30px',
+        borderRadius: '12px',
+        maxWidth: '400px',
+        width: '90%',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+      }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '25px', color: '#333' }}>
+          {isLoginMode ? 'Welcome Back' : 'Join Janus Forge Nexus'}
+        </h2>
+
+        {error && (
+          <div style={{
+            backgroundColor: '#f8d7da',
+            color: '#721c24',
+            padding: '10px',
+            borderRadius: '6px',
+            marginBottom: '15px',
+            fontSize: '14px'
+          }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          {!isLoginMode && (
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#333' }}>
+                Full Name
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required={!isLoginMode}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  fontSize: '16px',
+                  outline: 'none',
+                  transition: 'border-color 0.2s'
+                }}
+                placeholder="Enter your name"
+              />
+            </div>
+          )}
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#333' }}>
+              Email
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '2px solid #ddd',
+                borderRadius: '6px',
+                fontSize: '16px',
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+              placeholder="Enter your email"
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#333' }}>
+              Password
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              minLength="6"
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '2px solid #ddd',
+                borderRadius: '6px',
+                fontSize: '16px',
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+              placeholder="Enter your password"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: isLoading ? '#6c757d' : TIERS.free.color,
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              marginBottom: '15px'
+            }}
+          >
+            {isLoading ? '🔄 Processing...' : (isLoginMode ? 'Sign In' : 'Create Account')}
+          </button>
+        </form>
+
+        <div style={{ textAlign: 'center' }}>
+          <button
+            onClick={switchMode}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: TIERS.free.color,
+              cursor: 'pointer',
+              fontSize: '14px',
+              textDecoration: 'underline'
+            }}
+          >
+            {isLoginMode ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+          </button>
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%',
+            padding: '8px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            marginTop: '15px'
+          }}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // --- ONBOARDING TOUR COMPONENT ---
-function OnboardingTour({ onComplete, currentTier }) {
+function OnboardingTour({ onComplete, currentTier, user }) {
   const [currentStep, setCurrentStep] = useState(0);
   
   const steps = [
     {
-      title: "🎭 Welcome to Janus Forge Nexus",
+      title: `🎭 Welcome to Janus Forge Nexus${user ? `, ${user.name}` : ''}`,
       content: "Where thesis meets antithesis. Debate complex topics with multiple AI perspectives for deeper understanding.",
       position: "center"
+    },
+    {
+      title: "🔐 Your AI Debate Account",
+      content: `You're on the ${TIERS[currentTier].name} tier. Track your usage, save sessions, and continue debates anytime.`,
+      position: "top"
     },
     {
       title: "🤖 Multi-AI Ensemble",
@@ -199,7 +498,7 @@ function OnboardingTour({ onComplete, currentTier }) {
               fontWeight: '600'
             }}
           >
-            {currentStep === steps.length - 1 ? 'Get Started 🚀' : 'Next →'}
+            {currentStep === steps.length - 1 ? 'Start Debating 🚀' : 'Next →'}
           </button>
         </div>
       </div>
@@ -208,7 +507,7 @@ function OnboardingTour({ onComplete, currentTier }) {
 }
 
 // --- UPGRADE MODAL COMPONENT ---
-function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade }) {
+function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
   if (!isOpen) return null;
 
   return (
@@ -236,6 +535,20 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade }) {
         <h2 style={{ textAlign: 'center', marginBottom: '30px', color: '#333' }}>
           Upgrade Your AI Debate Experience
         </h2>
+        
+        {user && (
+          <div style={{
+            backgroundColor: '#e8f4fd',
+            padding: '15px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            border: '1px solid #74b9ff'
+          }}>
+            <p style={{ margin: 0, color: '#0984e3', textAlign: 'center' }}>
+              <strong>Signed in as:</strong> {user.email}
+            </p>
+          </div>
+        )}
         
         <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
           {Object.entries(TIERS).map(([tierKey, tier]) => (
@@ -324,7 +637,7 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade }) {
 }
 
 // --- PROMPT INPUT COMPONENT ---
-function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessage, onUpgradePrompt }) {
+function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessage, onUpgradePrompt, user }) {
   const [localPrompt, setLocalPrompt] = useState('');
   const inputRef = useRef(null);
 
@@ -370,7 +683,7 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
         color: '#666'
       }}>
         <span>
-          Messages: {usage.messagesSent} / {TIERS[usage.currentTier].messageLimit}
+          {user ? `${user.name} • ` : ''}Messages: {usage.messagesSent} / {TIERS[usage.currentTier].messageLimit}
         </span>
         {messagesRemaining <= 10 && (
           <span style={{ color: messagesRemaining <= 5 ? '#dc3545' : '#ffc107', fontWeight: 'bold' }}>
@@ -444,14 +757,16 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
 }
 
 // --- DASHBOARD COMPONENT ---
-function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, onUpgradePrompt }) {
+function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, onUpgradePrompt, user }) {
   const [status, setStatus] = useState('');
   const [sessionId, setSessionId] = useState(sessionIdFromUrl || '');
   const [sessionHistory, setSessionHistory] = useState([]);
   const [participants, setParticipants] = useState(TIERS[usage.currentTier].aiModels);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const messagesEndRef = useRef(null);
-  const { canSendMessage } = useUsageTracker();
+
+  // Get the canSendMessage function from useUsageTracker
+  const { canSendMessage } = useUsageTracker(user);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -479,20 +794,22 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
     }
 
     setStatus('Creating new session...');
-    const newSessionId = `session-${Date.now()}`;
+    const newSessionId = `session-${Date.now()}-${user?.id || 'anonymous'}`;
 
     hubClient.post('/broadcast', {
       session_id: newSessionId,
       ai_participants: participants,
       initial_prompt: "Session initialized - ready for prompts!",
-      tier: usage.currentTier
+      tier: usage.currentTier,
+      user_id: user?.id
     })
     .then(response => {
       setSessionId(newSessionId);
       setStatus('New session created! Ready for prompts.');
       setSessionHistory([{
         session_id: newSessionId,
-        messages: response.data.responses || []
+        messages: response.data.responses || [],
+        user_id: user?.id
       }]);
       incrementUsage('sessionsCreated');
     })
@@ -511,7 +828,9 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
     const userMessage = {
       role: 'user',
       content: promptText,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      user_id: user?.id,
+      user_name: user?.name
     };
 
     setSessionHistory(prev => {
@@ -531,7 +850,8 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
       session_id: sessionId,
       ai_participants: participants,
       moderator_prompt: promptText,
-      tier: usage.currentTier
+      tier: usage.currentTier,
+      user_id: user?.id
     })
     .then(response => {
       const broadcastData = response.data;
@@ -576,7 +896,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
       maxWidth: '100%',
       overflowX: 'hidden'
     }}>
-      {/* Usage Stats */}
+      {/* User Welcome & Usage Stats */}
       <div style={{
         background: 'white',
         padding: isMobile ? '12px' : '15px',
@@ -588,6 +908,9 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
+            <div style={{ fontWeight: '600', color: '#333', marginBottom: '5px' }}>
+              👋 Welcome{user ? `, ${user.name}` : ''}
+            </div>
             <strong style={{ color: TIERS[usage.currentTier].color }}>
               {TIERS[usage.currentTier].name} Tier
             </strong>
@@ -760,7 +1083,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
                         <>
                           {aiConfig?.icon} {aiConfig?.name || aiName}
                         </>
-                      ) : '👤 You'}
+                      : user ? `👤 ${user.name}` : '👤 You'}
                       <span style={{
                         marginLeft: '10px',
                         fontSize: isMobile ? '11px' : '12px',
@@ -806,8 +1129,9 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
             sessionId={sessionId}
             isSending={status.includes('Sending') || status.includes('Broadcasting')}
             usage={usage}
-            canSendMessage={canSendMessage()} // FIXED: Call the function
+            canSendMessage={canSendMessage()}
             onUpgradePrompt={onUpgradePrompt}
+            user={user}
           />
         )}
       </div>
@@ -835,671 +1159,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
   );
 }
 
-// --- BULK OPERATIONS HISTORY PAGE ---
-// --- BULK OPERATIONS HISTORY PAGE ---
-function HistoryPage({ usage, incrementUsage }) {
-  const navigate = useNavigate();
-  const [sessions, setSessions] = useState([]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [deletingSession, setDeletingSession] = useState(null);
-  const [error, setError] = useState('');
-  const [openDropdown, setOpenDropdown] = useState(null);
-  const [loadingSessions, setLoadingSessions] = useState({});
-  
-  // Bulk operations state
-  const [selectedSessions, setSelectedSessions] = useState([]);
-  const [isBulkDeleteMode, setIsBulkDeleteMode] = useState(false);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    window.addEventListener('resize', handleResize);
-    loadSessions();
-
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Refresh when navigating to History tab
-  useEffect(() => {
-    const currentPath = window.location.pathname;
-    if (currentPath === '/history') {
-      loadSessions();
-    }
-  }, [window.location.pathname]);
-
-  const loadSessions = () => {
-    setError('');
-    hubClient.get('/sessions')
-      .then(response => {
-        const sessionsData = response.data.sessions || [];
-        setSessions(sessionsData);
-        setSelectedSessions([]); // Clear selection on refresh
-        
-        // Load detailed data for each session
-        sessionsData.forEach(session => {
-          loadSessionDetails(session.session_id);
-        });
-      })
-      .catch(error => {
-        console.error('Failed to load sessions:', error);
-        setError('Failed to load sessions. Please refresh the page.');
-      });
-  };
-
-  const loadSessionDetails = async (sessionId) => {
-    setLoadingSessions(prev => ({ ...prev, [sessionId]: true }));
-    
-    try {
-      const response = await hubClient.get(`/session/${sessionId}`);
-      const sessionData = response.data;
-      
-      setSessions(prev => prev.map(session => 
-        session.session_id === sessionId 
-          ? { ...session, ...sessionData, loaded: true }
-          : session
-      ));
-    } catch (error) {
-      console.error(`Failed to load session ${sessionId}:`, error);
-      // Don't show error for individual session failures
-    } finally {
-      setLoadingSessions(prev => ({ ...prev, [sessionId]: false }));
-    }
-  };
-
-  const handleSessionClick = (sessionId) => {
-    navigate(`/session/${sessionId}`);
-  };
-
-  const handleDeleteSession = async (sessionId, e) => {
-    if (e) e.stopPropagation();
-    setDeletingSession(sessionId);
-    setError('');
-
-    if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
-      try {
-        await hubClient.delete(`/session/${sessionId}`);
-        setSessions(prev => prev.filter(s => s.session_id !== sessionId));
-        await loadSessions(); // Refresh from server
-        console.log(`✅ Session ${sessionId} deleted`);
-      } catch (error) {
-        console.error('Session deletion failed:', error);
-        if (error.response?.status === 405) {
-          setError('Delete functionality coming soon! The backend DELETE endpoint needs to be implemented.');
-        } else {
-          setError('Failed to delete session. Please try again.');
-        }
-      } finally {
-        setDeletingSession(null);
-      }
-    }
-  };
-
-  // Bulk operations handlers
-  const handleSessionSelect = (sessionId, isSelected) => {
-    setSelectedSessions(prev => 
-      isSelected 
-        ? [...prev, sessionId]
-        : prev.filter(id => id !== sessionId)
-    );
-  };
-
-  const handleBulkDelete = async () => {
-    if (!selectedSessions.length) return;
-    
-    if (window.confirm(`Are you sure you want to delete ${selectedSessions.length} session(s)? This cannot be undone.`)) {
-      try {
-        const deletePromises = selectedSessions.map(sessionId => 
-          hubClient.delete(`/session/${sessionId}`)
-        );
-        
-        await Promise.all(deletePromises);
-        await loadSessions();
-        
-        setSelectedSessions([]);
-        setIsBulkDeleteMode(false);
-        
-        console.log(`✅ Deleted ${selectedSessions.length} sessions`);
-      } catch (error) {
-        console.error('Bulk delete failed:', error);
-        setError('Failed to delete some sessions. Please try again.');
-      }
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedSessions.length === sessions.length) {
-      setSelectedSessions([]);
-    } else {
-      setSelectedSessions(sessions.map(s => s.session_id));
-    }
-  };
-
-  const formatTimestamp = (timestamp) => {
-    try {
-      const date = new Date(timestamp);
-      return date.toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (e) {
-      return 'Invalid date';
-    }
-  };
-
-  // Enhanced export functions with actual message content
-  const exportAsJSON = (session) => {
-    const exportData = {
-      session_id: session.session_id,
-      created: session.created || session.last_updated,
-      last_updated: session.last_updated,
-      message_count: session.messages ? session.messages.length : 0,
-      messages: session.messages || [],
-      metadata: {
-        exported_from: "Janus Forge Nexus",
-        export_timestamp: new Date().toISOString(),
-        version: "1.0"
-      }
-    };
-    
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], {type: 'application/json'});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(dataBlob);
-    link.download = `janus-forge-session-${session.session_id}.json`;
-    link.click();
-  };
-
-  const exportAsText = (session) => {
-    let textContent = `JANUS FORGE NEXUS - SESSION EXPORT\n`;
-    textContent += `Session: ${session.session_id}\n`;
-    textContent += `Created: ${new Date(session.created || session.last_updated).toLocaleString()}\n`;
-    textContent += `Last Updated: ${new Date(session.last_updated).toLocaleString()}\n`;
-    textContent += `Message Count: ${session.messages ? session.messages.length : '0'}\n`;
-    textContent += `========================================\n\n`;
-    
-    if (session.messages && session.messages.length > 0) {
-      session.messages.forEach((message, index) => {
-        const sender = message.role === 'user' ? 'You' : message.ai_name || 'AI';
-        const timestamp = new Date(message.timestamp).toLocaleString();
-        
-        textContent += `[${timestamp}] ${sender}:\n`;
-        textContent += `${message.content}\n`;
-        textContent += `----------------------------------------\n\n`;
-      });
-    } else {
-      textContent += `No messages available for this session.\n`;
-      textContent += `Click the session to view messages in the dashboard.\n`;
-    }
-
-    const dataBlob = new Blob([textContent], {type: 'text/plain'});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(dataBlob);
-    link.download = `janus-forge-${session.session_id}.txt`;
-    link.click();
-  };
-
-  const toggleDropdown = (sessionId, e) => {
-    if (e) e.stopPropagation();
-    setOpenDropdown(openDropdown === sessionId ? null : sessionId);
-  };
-
-  // Function to preview session messages
-  const PreviewMessages = ({ session }) => {
-    if (!session.messages || session.messages.length === 0) {
-      return (
-        <div style={{
-          fontSize: '14px',
-          color: '#666',
-          fontStyle: 'italic',
-          marginTop: '10px'
-        }}>
-          No messages yet. Click to open session.
-        </div>
-      );
-    }
-
-    const previewMessages = session.messages.slice(-3); // Show last 3 messages
-
-    return (
-      <div style={{ marginTop: '10px' }}>
-        <div style={{
-          fontSize: '14px',
-          fontWeight: '600',
-          color: '#333',
-          marginBottom: '8px'
-        }}>
-          Recent Messages:
-        </div>
-        {previewMessages.map((message, index) => {
-          const isUserMessage = message.role === 'user';
-          const aiConfig = AI_MODELS[message.ai_name];
-          
-          return (
-            <div key={index} style={{
-              marginBottom: '8px',
-              padding: '8px',
-              backgroundColor: isUserMessage ? '#e8f4fd' : 
-                             aiConfig ? `${aiConfig.color}10` : '#f8f9fa',
-              borderRadius: '6px',
-              borderLeft: `3px solid ${isUserMessage ? '#007bff' : 
-                            aiConfig ? aiConfig.color : '#6c757d'}`
-            }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '4px'
-              }}>
-                <span style={{
-                  fontWeight: '600',
-                  fontSize: '13px',
-                  color: isUserMessage ? '#007bff' : 
-                         aiConfig ? aiConfig.color : '#6c757d'
-                }}>
-                  {isUserMessage ? '👤 You' : `${aiConfig?.icon || '🤖'} ${aiConfig?.name || message.ai_name || 'AI'}`}
-                </span>
-                <span style={{
-                  fontSize: '11px',
-                  color: '#666'
-                }}>
-                  {new Date(message.timestamp).toLocaleTimeString()}
-                </span>
-              </div>
-              <div style={{
-                fontSize: '13px',
-                color: '#333',
-                lineHeight: '1.4',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
-                {message.content}
-              </div>
-            </div>
-          );
-        })}
-        {session.messages.length > 3 && (
-          <div style={{
-            fontSize: '12px',
-            color: '#666',
-            textAlign: 'center',
-            marginTop: '5px'
-          }}>
-            ... and {session.messages.length - 3} more messages
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <div style={{
-      padding: isMobile ? '15px' : '20px',
-      minHeight: '100vh',
-      backgroundColor: '#f0f0f0'
-    }}>
-      <div style={{
-        background: 'white',
-        padding: isMobile ? '15px' : '20px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-          <div>
-            <h2 style={{
-              fontSize: isMobile ? '20px' : '24px',
-              margin: '0 0 5px 0',
-              color: '#333'
-            }}>
-              Session History
-            </h2>
-            <p style={{
-              fontSize: isMobile ? '14px' : '16px',
-              color: '#666',
-              margin: 0
-            }}>
-              {sessions.length} session(s) • Click to review conversations
-            </p>
-          </div>
-
-          {/* Bulk Operations Controls */}
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setIsBulkDeleteMode(!isBulkDeleteMode)}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: isBulkDeleteMode ? '#6c757d' : TIERS[usage.currentTier].color,
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              {isBulkDeleteMode ? '✖ Cancel' : '🗑️ Bulk Delete'}
-            </button>
-            
-            {isBulkDeleteMode && (
-              <button
-                onClick={handleSelectAll}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#17a2b8',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                {selectedSessions.length === sessions.length ? '❌ Deselect All' : '✅ Select All'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Bulk Delete Banner */}
-      {isBulkDeleteMode && selectedSessions.length > 0 && (
-        <div style={{
-          background: '#fff3cd',
-          padding: '15px',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          border: '1px solid #ffeaa7',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '10px'
-        }}>
-          <div style={{ fontWeight: '600', color: '#856404' }}>
-            🗑️ {selectedSessions.length} session(s) selected for deletion
-          </div>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button
-              onClick={handleBulkDelete}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#dc3545',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: '600'
-              }}
-            >
-              Confirm Delete
-            </button>
-            <button
-              onClick={() => {
-                setSelectedSessions([]);
-                setIsBulkDeleteMode(false);
-              }}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <div style={{
-          background: '#f8d7da',
-          color: '#721c24',
-          padding: '15px',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          border: '1px solid #f5c6cb'
-        }}>
-          <strong>Note:</strong> {error}
-        </div>
-      )}
-
-      {sessions.length === 0 ? (
-        <div style={{
-          background: 'white',
-          padding: '40px',
-          borderRadius: '8px',
-          textAlign: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-        }}>
-          <p style={{ color: '#666', fontSize: '16px', margin: 0 }}>
-            No sessions found. Start a conversation on the Dashboard to see your history here.
-          </p>
-        </div>
-      ) : (
-        <div>
-          {sessions.map(session => (
-            <div key={session.session_id} style={{
-              padding: isMobile ? '15px' : '20px',
-              margin: '0 0 15px 0',
-              border: `2px solid ${
-                selectedSessions.includes(session.session_id) ? TIERS[usage.currentTier].color : '#ddd'
-              }`,
-              borderRadius: '8px',
-              backgroundColor: selectedSessions.includes(session.session_id) ? 
-                `${TIERS[usage.currentTier].color}10` : 'white',
-              cursor: isBulkDeleteMode ? 'default' : 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}
-            onClick={isBulkDeleteMode ? undefined : () => handleSessionClick(session.session_id)}
-            onMouseEnter={(e) => !isBulkDeleteMode && (e.target.style.backgroundColor = '#f8f9fa')}
-            onMouseLeave={(e) => !isBulkDeleteMode && (
-              e.target.style.backgroundColor = selectedSessions.includes(session.session_id) ? 
-                `${TIERS[usage.currentTier].color}10` : 'white'
-            )}>
-
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                flexDirection: isMobile ? 'column' : 'row',
-                gap: isMobile ? '15px' : '0',
-                marginBottom: '15px'
-              }}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'flex-start', 
-                  gap: '15px',
-                  flex: 1 
-                }}>
-                  {/* Checkbox for bulk operations */}
-                  {isBulkDeleteMode && (
-                    <input
-                      type="checkbox"
-                      checked={selectedSessions.includes(session.session_id)}
-                      onChange={(e) => handleSessionSelect(session.session_id, e.target.checked)}
-                      style={{ 
-                        marginTop: '3px',
-                        transform: 'scale(1.2)'
-                      }}
-                    />
-                  )}
-
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontSize: isMobile ? '16px' : '18px',
-                      fontWeight: '600',
-                      color: '#333',
-                      marginBottom: '8px',
-                      wordBreak: 'break-all'
-                    }}>
-                      {session.session_id}
-                      {loadingSessions[session.session_id] && (
-                        <span style={{
-                          marginLeft: '10px',
-                          fontSize: '12px',
-                          color: '#007bff'
-                        }}>
-                          🔄 Loading...
-                        </span>
-                      )}
-                    </div>
-                    <div style={{
-                      fontSize: isMobile ? '14px' : '15px',
-                      color: '#666',
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '15px'
-                    }}>
-                      <span>
-                        <strong>Last Active:</strong> {formatTimestamp(session.last_updated)}
-                      </span>
-                      <span>
-                        <strong>Messages:</strong> {session.messages ? session.messages.length : session.message_count || '0'}
-                      </span>
-                    </div>
-
-                    {/* Message Preview */}
-                    <PreviewMessages session={session} />
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                {!isBulkDeleteMode && (
-                  <div style={{
-                    display: 'flex',
-                    gap: '10px',
-                    flexDirection: isMobile ? 'row' : 'row',
-                    alignItems: 'center'
-                  }}>
-                    {/* Export Dropdown */}
-                    <div style={{ position: 'relative' }}>
-                      <button
-                        onClick={(e) => toggleDropdown(session.session_id, e)}
-                        style={{
-                          padding: '8px 16px',
-                          backgroundColor: '#28a745',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          fontWeight: '500',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px'
-                        }}
-                      >
-                        💾 Export ▼
-                      </button>
-
-                      {openDropdown === session.session_id && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '100%',
-                          right: 0,
-                          backgroundColor: 'white',
-                          minWidth: '140px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          borderRadius: '6px',
-                          zIndex: 1000,
-                          border: '1px solid #ddd',
-                          marginTop: '5px'
-                        }}>
-                          <button
-                            onClick={(e) => {
-                              exportAsText(session);
-                              toggleDropdown(session.session_id, e);
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '10px 15px',
-                              border: 'none',
-                              backgroundColor: 'transparent',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              fontSize: '14px',
-                              borderBottom: '1px solid #eee'
-                            }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                          >
-                            📝 Text File
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              exportAsJSON(session);
-                              toggleDropdown(session.session_id, e);
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '10px 15px',
-                              border: 'none',
-                              backgroundColor: 'transparent',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              fontSize: '14px'
-                            }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-                          >
-                            ⚙️ JSON File
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Delete Button */}
-                    <button
-                      onClick={(e) => handleDeleteSession(session.session_id, e)}
-                      disabled={deletingSession === session.session_id}
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: deletingSession === session.session_id ? '#6c757d' : '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: deletingSession === session.session_id ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        opacity: deletingSession === session.session_id ? 0.6 : 1
-                      }}
-                    >
-                      {deletingSession === session.session_id ? '🗑️ Deleting...' : '🗑️ Delete'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-
-// --- DASHBOARD WRAPPER ---
-function DashboardWrapper({ usage, incrementUsage, canCreateSession, onUpgradePrompt }) {
-  const { sessionId } = useParams();
-  return <Dashboard 
-    sessionIdFromUrl={sessionId} 
-    usage={usage}
-    incrementUsage={incrementUsage}
-    canCreateSession={canCreateSession()} // FIXED: Call the function
-    onUpgradePrompt={onUpgradePrompt}
-  />;
-}
+// [Rest of the components remain the same but with user prop added...]
 
 // --- MAIN APP COMPONENT ---
 function App() {
@@ -1509,8 +1169,10 @@ function App() {
     return !localStorage.getItem('janusForgeOnboardingCompleted');
   });
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
-  const { usage, incrementUsage, canCreateSession, canSendMessage, upgradeTier } = useUsageTracker();
+  const { user, isLoading, authError, login, signup, logout, upgradeAccount } = useAuth();
+  const { usage, incrementUsage, canCreateSession, canSendMessage, upgradeTier } = useUsageTracker(user);
 
   useEffect(() => {
     const handleResize = () => {
@@ -1518,8 +1180,14 @@ function App() {
     };
 
     window.addEventListener('resize', handleResize);
+    
+    // Show auth modal if no user is logged in
+    if (!user) {
+      setShowAuthModal(true);
+    }
+
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [user]);
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -1527,22 +1195,59 @@ function App() {
   };
 
   const handleUpgradePrompt = () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     setShowUpgradeModal(true);
   };
 
   const handleTierUpgrade = (newTier) => {
     upgradeTier(newTier);
+    upgradeAccount(newTier);
     setShowUpgradeModal(false);
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    if (!localStorage.getItem('janusForgeOnboardingCompleted')) {
+      setShowOnboarding(true);
+    }
+  };
+
+  const handleLogin = async (email, password) => {
+    const result = await login(email, password);
+    if (result.success) {
+      handleAuthSuccess();
+    }
+  };
+
+  const handleSignup = async (email, password, name) => {
+    const result = await signup(email, password, name);
+    if (result.success) {
+      handleAuthSuccess();
+    }
   };
 
   return (
     <Router>
       <div className="App">
+        {/* Authentication Modal */}
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => user ? setShowAuthModal(false) : null} // Don't allow closing if no user
+          onLogin={handleLogin}
+          onSignup={handleSignup}
+          isLoading={isLoading}
+          error={authError}
+        />
+
         {/* Onboarding Tour */}
-        {showOnboarding && (
+        {showOnboarding && user && (
           <OnboardingTour 
             onComplete={handleOnboardingComplete} 
             currentTier={usage.currentTier}
+            user={user}
           />
         )}
 
@@ -1552,6 +1257,7 @@ function App() {
           onClose={() => setShowUpgradeModal(false)}
           currentTier={usage.currentTier}
           onUpgrade={handleTierUpgrade}
+          user={user}
         />
 
         {/* Single Unified Header */}
@@ -1642,7 +1348,7 @@ function App() {
               </div>
             </div>
 
-            {/* Navigation & Upgrade Button */}
+            {/* Navigation & User Actions */}
             <div style={{
               display: 'flex',
               gap: isMobile ? '10px' : '15px',
@@ -1691,8 +1397,52 @@ function App() {
                 </NavLink>
               </nav>
 
+              {/* User Actions */}
+              {user ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{
+                    fontSize: '14px',
+                    color: '#333',
+                    fontWeight: '500'
+                  }}>
+                    👋 {user.name}
+                  </span>
+                  <button
+                    onClick={logout}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: TIERS.free.color,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  🔐 Sign In
+                </button>
+              )}
+
               {/* Upgrade Button */}
-              {usage.currentTier !== 'enterprise' && (
+              {user && usage.currentTier !== 'enterprise' && (
                 <button
                   onClick={() => setShowUpgradeModal(true)}
                   style={{
@@ -1730,25 +1480,28 @@ function App() {
         <main>
           <Routes>
             <Route path="/" element={
-              <DashboardWrapper 
+              <Dashboard 
                 usage={usage}
                 incrementUsage={incrementUsage}
-                canCreateSession={canCreateSession}
+                canCreateSession={canCreateSession()}
                 onUpgradePrompt={handleUpgradePrompt}
+                user={user}
               />
             } />
             <Route path="/session/:sessionId" element={
-              <DashboardWrapper 
+              <Dashboard 
                 usage={usage}
                 incrementUsage={incrementUsage}
-                canCreateSession={canCreateSession}
+                canCreateSession={canCreateSession()}
                 onUpgradePrompt={handleUpgradePrompt}
+                user={user}
               />
             } />
             <Route path="/history" element={
               <HistoryPage 
                 usage={usage}
                 incrementUsage={incrementUsage}
+                user={user}
               />
             } />
             <Route path="/contact" element={
@@ -1759,7 +1512,7 @@ function App() {
               }}>
                 <h2 style={{ fontSize: isMobile ? '20px' : '24px' }}>Contact the Forge</h2>
                 <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                  Email: admin@janusforge.ai
+                  Email: cassandraleighwilliamson@gmail.com
                 </p>
                 <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
                   Join us in building the future of AI collaboration.
