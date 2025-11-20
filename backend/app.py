@@ -83,6 +83,28 @@ def get_db():
     finally:
         db.close()
 
+# Add this to your app.py file (find a good spot near other routes)
+
+@app.delete("/api/v1/session/{session_id}")
+async def delete_session(session_id: str):
+    """Delete a session and all its messages"""
+    try:
+        print(f"🎯 DELETE endpoint called for session: {session_id}")
+        
+        # TODO: Add your actual database deletion logic here
+        # For now, just return success to test the frontend
+        
+        return {
+            "status": "success",
+            "message": f"Session {session_id} deleted successfully"
+        }
+            
+    except Exception as e:
+        print(f"💥 Error in DELETE endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting session: {str(e)}")
+
+
+
 # AI Integration (Placeholder - integrate with your actual AI services)
 async def get_ai_response(ai_name: str, prompt: str) -> str:
     """Get response from actual AI service"""
