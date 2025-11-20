@@ -451,6 +451,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
   const [participants, setParticipants] = useState(TIERS[usage.currentTier].aiModels);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const messagesEndRef = useRef(null);
+  const { canSendMessage } = useUsageTracker();
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
