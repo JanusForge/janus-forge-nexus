@@ -498,7 +498,26 @@ function HistoryPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const loadSessions = () => {
+// Refresh when navigating to History tab
+   useEffect(() => {
+   loadSessions();
+   }, [window.location.pathname]);
+
+
+const loadSessions = async () => {
+  try {
+    console.log("🔄 Refreshing sessions from server...");
+    const response = await axios.get(`${API_URL}/api/v1/sessions`);
+    setSessions(response.data.sessions || []); // Ensure it's always an array
+    console.log(`✅ Loaded ${response.data.sessions?.length || 0} sessions`);
+  } catch (error) {
+    console.error('Failed to load sessions:', error);
+    setSessions([]); // Clear on error
+  }
+};
+  
+
+const loadSessions = () => {
     setError('');
     hubClient.get('/sessions')
       .then(response => {
@@ -515,31 +534,38 @@ function HistoryPage() {
   };
 
   const handleDeleteSession = async (sessionId, e) => {
-    if (e) e.stopPropagation();
-    setDeletingSession(sessionId);
-    setError('');
-    
-    if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
-      try {
-        // Try the actual delete first
-        await hubClient.delete(`/session/${sessionId}`);
-        setSessions(prev => prev.filter(s => s.session_id !== sessionId));
-      } catch (error) {
-        console.error('Session deletion failed:', error);
-        
-        // Show user-friendly error message
-        if (error.response?.status === 405) {
-          setError('Delete functionality coming soon! The backend DELETE endpoint needs to be implemented.');
-        } else {
-          setError('Failed to delete session. Please try again.');
-        }
-      } finally {
-        setDeletingSession(null);
+  if (e) e.stopPropagation();
+  setDeletingSession(sessionId);
+  setError('');
+
+  if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+    try {
+      // Try the actual delete first
+      await hubClient.delete(`/session/${sessionId}`);
+      
+      // OPTION 1: Update local state immediately (for fast UI update)
+      setSessions(prev => prev.filter(s => s.session_id !== sessionId));
+      await loadSessions(); // ← ADD THIS LINE
+
+      // OPTION 2: ALSO refresh from server to ensure consistency
+
+      
+      console.log(`✅ Session ${sessionId} deleted and list refreshed from server`);
+      
+    } catch (error) {
+      console.error('Session deletion failed:', error);
+
+      // Show user-friendly error message
+      if (error.response?.status === 405) {
+        setError('Delete functionality coming soon! The backend DELETE endpoint needs to be implemented.');
+      } else {
+        setError('Failed to delete session. Please try again.');
       }
-    } else {
+    } finally {
       setDeletingSession(null);
     }
-  };
+  }
+};
 
   const formatTimestamp = (timestamp) => {
   try {
