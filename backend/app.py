@@ -114,46 +114,131 @@ async def delete_session(session_id: str):
 
 # AI Integration
 async def get_ai_response(ai_name: str, prompt: str) -> str:
-    """Get response from actual AI service"""
+    """Get response from actual AI service with detailed debugging"""
     try:
-        print(f"🎯 Calling {ai_name} with prompt: {prompt[:50]}...")
+        print(f"🎯 [DEBUG] Calling {ai_name} API with prompt: '{prompt}'")
         
         if ai_name == "grok":
-            # Grok API integration
-            return await call_grok_api(prompt)
-            
+            result = await call_grok_api(prompt)
         elif ai_name == "gemini":
-            # Gemini API integration  
-            return await call_gemini_api(prompt)
-            
+            result = await call_gemini_api(prompt)
         elif ai_name == "deepseek":
-            # DeepSeek API integration
-            return await call_deepseek_api(prompt)
-            
+            result = await call_deepseek_api(prompt)
         else:
-            return f"[{ai_name}] Unknown AI service"
+            result = f"[{ai_name}] Unknown AI service"
+            
+        print(f"✅ [DEBUG] {ai_name} result: {result}")
+        return result
             
     except Exception as e:
-        print(f"💥 {ai_name} API error: {str(e)}")
+        print(f"💥 [DEBUG] {ai_name} overall error: {str(e)}")
+        import traceback
+        print(f"📋 [DEBUG] {ai_name} traceback: {traceback.format_exc()}")
         return f"[{ai_name}] Error: {str(e)}"
 
 async def call_grok_api(prompt: str) -> str:
-    """Call Grok API"""
-    # TODO: Implement actual Grok API call
-    # You'll need xAI Grok API credentials
-    return f"🦄 Grok: I've analyzed '{prompt}' and here's my unique take..."
+    """Call Grok API with detailed debugging"""
+    try:
+        print(f"🦄 [DEBUG] Starting Grok API call...")
+        api_key = os.getenv("GROK_API_KEY")
+        print(f"🦄 [DEBUG] Grok API key exists: {bool(api_key)}")
+        
+        if not api_key:
+            return "🦄 Grok: API key not configured"
+        
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url="https://api.x.ai/v1"
+        )
+        print(f"🦄 [DEBUG] Grok client created")
+        
+        response = await client.chat.completions.create(
+            model="grok-beta",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150
+        )
+        print(f"🦄 [DEBUG] Grok API response received")
+        
+        ai_response = response.choices[0].message.content
+        print(f"🦄 [DEBUG] Grok content: {ai_response}")
+        return f"🦄 Grok: {ai_response}"
+        
+    except Exception as e:
+        print(f"💥 [DEBUG] Grok API error: {str(e)}")
+        import traceback
+        print(f"📋 [DEBUG] Grok traceback: {traceback.format_exc()}")
+        return f"🦄 Grok Error: {str(e)}"
 
 async def call_gemini_api(prompt: str) -> str:
-    """Call Gemini API"""
-    # TODO: Implement actual Gemini API call
-    # You'll need Google AI Studio API key
-    return f"🌀 Gemini: After comprehensive analysis of '{prompt}', I conclude..."
+    """Call Gemini API with detailed debugging"""
+    try:
+        print(f"🌀 [DEBUG] Starting Gemini API call...")
+        api_key = os.getenv("GEMINI_API_KEY")
+        print(f"🌀 [DEBUG] Gemini API key exists: {bool(api_key)}")
+        
+        if not api_key:
+            return "🌀 Gemini: API key not configured"
+        
+        from google import genai
+        from google.genai import types
+        
+        client = genai.Client(api_key=api_key)
+        print(f"🌀 [DEBUG] Gemini client created")
+        
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt
+        )
+        print(f"🌀 [DEBUG] Gemini API response received")
+        
+        ai_response = response.text
+        print(f"🌀 [DEBUG] Gemini content: {ai_response}")
+        return f"🌀 Gemini: {ai_response}"
+        
+    except Exception as e:
+        print(f"💥 [DEBUG] Gemini API error: {str(e)}")
+        import traceback
+        print(f"📋 [DEBUG] Gemini traceback: {traceback.format_exc()}")
+        return f"🌀 Gemini Error: {str(e)}"
 
 async def call_deepseek_api(prompt: str) -> str:
-    """Call DeepSeek API"""
-    # TODO: Implement actual DeepSeek API call  
-    # You'll need DeepSeek API credentials
-    return f"🎯 DeepSeek: My focused analysis of '{prompt}' reveals..."
+    """Call DeepSeek API with detailed debugging"""
+    try:
+        print(f"🎯 [DEBUG] Starting DeepSeek API call...")
+        api_key = os.getenv("DEEPSEEK_API_KEY")
+        print(f"🎯 [DEBUG] DeepSeek API key exists: {bool(api_key)}")
+        
+        if not api_key:
+            return "🎯 DeepSeek: API key not configured"
+        
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url="https://api.deepseek.com/v1"
+        )
+        print(f"🎯 [DEBUG] DeepSeek client created")
+        
+        response = await client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150
+        )
+        print(f"🎯 [DEBUG] DeepSeek API response received")
+        
+        ai_response = response.choices[0].message.content
+        print(f"🎯 [DEBUG] DeepSeek content: {ai_response}")
+        return f"🎯 DeepSeek: {ai_response}"
+        
+    except Exception as e:
+        print(f"💥 [DEBUG] DeepSeek API error: {str(e)}")
+        import traceback
+        print(f"📋 [DEBUG] DeepSeek traceback: {traceback.format_exc()}")
+        return f"🎯 DeepSeek Error: {str(e)}"
 
 # Routes
 @app.get("/")
