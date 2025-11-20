@@ -805,7 +805,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
             sessionId={sessionId}
             isSending={status.includes('Sending') || status.includes('Broadcasting')}
             usage={usage}
-            canSendMessage={canSendMessage()}
+            canSendMessage={canSendMessage()} // FIXED: Call the function
             onUpgradePrompt={onUpgradePrompt}
           />
         )}
@@ -1338,7 +1338,7 @@ function DashboardWrapper({ usage, incrementUsage, canCreateSession, onUpgradePr
     sessionIdFromUrl={sessionId} 
     usage={usage}
     incrementUsage={incrementUsage}
-    canCreateSession={canCreateSession()}
+    canCreateSession={canCreateSession()} // FIXED: Call the function
     onUpgradePrompt={onUpgradePrompt}
   />;
 }
