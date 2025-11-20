@@ -153,8 +153,9 @@ async def call_grok_api(prompt: str) -> str:
         )
         print(f"🦄 [DEBUG] Grok client created")
         
+        # FIX: Use the correct model name for SuperGrok Business
         response = await client.chat.completions.create(
-            model="grok-beta",
+            model="grok-4-latest",  # ← CHANGED TO grok-4-latest
             messages=[
                 {"role": "user", "content": prompt}
             ],
