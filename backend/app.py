@@ -171,7 +171,7 @@ async def get_session(session_id: str, db: Session = Depends(get_db)):
 @app.post("/api/v1/broadcast")
 async def broadcast_message(request: BroadcastRequest, db: Session = Depends(get_db)):
     """Broadcast message to AI participants and store in database"""
-    
+
     # Check if session exists, create if not
     session = db.query(DBSession).filter(DBSession.session_id == request.session_id).first()
     if not session:
@@ -182,14 +182,14 @@ async def broadcast_message(request: BroadcastRequest, db: Session = Depends(get
         db.add(session)
         db.commit()
         db.refresh(session)
-    
+
     # Update last_updated
     session.last_updated = datetime.utcnow()
     db.commit()
-    
+
     # Determine the prompt to use
     prompt = request.moderator_prompt or request.initial_prompt or "Hello"
-    
+
     # Add user message if it's a moderator prompt
     if request.moderator_prompt:
         user_message = DBMessage(
@@ -199,13 +199,13 @@ async def broadcast_message(request: BroadcastRequest, db: Session = Depends(get
         )
         db.add(user_message)
         db.commit()
-    
+
     # Generate AI responses
     ai_responses = []
     for ai_name in request.ai_participants:
         # Get AI response (replace with your actual AI integration)
         ai_content = await get_ai_response(ai_name, prompt)
-        
+
         # Store AI response
         ai_message = DBMessage(
             session_id=request.session_id,
@@ -214,15 +214,19 @@ async def broadcast_message(request: BroadcastRequest, db: Session = Depends(get
             content=ai_content
         )
         db.add(ai_message)
+        db.flush()  # ← FIX: This ensures timestamp is set before we use it
+
+        # FIX: Handle potential None timestamp safely
+        timestamp = ai_message.timestamp.isoformat() if ai_message.timestamp else datetime.utcnow().isoformat()
         
         ai_responses.append(AIResponse(
             ai_name=ai_name,
             content=ai_content,
-            timestamp=ai_message.timestamp.isoformat()
+            timestamp=timestamp  # ← FIX: Use the safe timestamp
         ))
-    
+
     db.commit()
-    
+
     return BroadcastResponse(
         session_id=request.session_id,
         responses=ai_responses
