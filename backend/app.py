@@ -1,41 +1,62 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-import google.generativeai as genai
-from openai import OpenAI
-from anthropic import Anthropic
 import requests
-import json
 from datetime import datetime
+
+# Try to import optional dependencies
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    print("⚠️  google-generativeai not available")
+
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("⚠️  openai not available")
+
+try:
+    from anthropic import Anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+    print("⚠️  anthropic not available")
 
 app = Flask(__name__)
 CORS(app)
 
 # --- CONFIGURATION ---
-# API Keys - make sure these are set in your environment variables
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY') 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
-GROK_API_KEY = os.getenv('GROK_API_KEY')  # You'll need to get this
+GROK_API_KEY = os.getenv('GROK_API_KEY')
 
 # Initialize API clients
-openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+openai_client = None
+anthropic_client = None
 
-# Configure Gemini
-if GEMINI_API_KEY:
+if OPENAI_AVAILABLE and OPENAI_API_KEY:
+    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+if ANTHROPIC_AVAILABLE and ANTHROPIC_API_KEY:
+    anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
+if GEMINI_AVAILABLE and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
 # --- SESSION STORAGE ---
-# In-memory session storage (replace with database in production)
 session_storage = {}
 
 # --- API CALL FUNCTIONS ---
 def call_openai_api(prompt):
     """Call OpenAI GPT API"""
     if not openai_client:
-        return "OpenAI API not configured"
+        return "🔧 OpenAI is experiencing technical issues. Please try again later."
     
     try:
         response = openai_client.chat.completions.create(
@@ -46,12 +67,12 @@ def call_openai_api(prompt):
         return response.choices[0].message.content
     except Exception as e:
         print(f"❌ OpenAI API error: {str(e)}")
-        return f"OpenAI error: {str(e)}"
+        return "🔧 OpenAI is experiencing technical issues. Please try again later."
 
 def call_gemini_api(prompt):
     """Call Google Gemini API"""
-    if not GEMINI_API_KEY:
-        return "Gemini API not configured"
+    if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
+        return "🔧 Gemini is experiencing technical issues. Please try again later."
     
     try:
         model = genai.GenerativeModel('gemini-pro')
@@ -59,28 +80,28 @@ def call_gemini_api(prompt):
         return response.text
     except Exception as e:
         print(f"❌ Gemini API error: {str(e)}")
-        return f"Gemini error: {str(e)}"
+        return "🔧 Gemini is experiencing technical issues. Please try again later."
 
 def call_anthropic_api(prompt):
     """Call Anthropic Claude API"""
     if not anthropic_client:
-        return "Anthropic API not configured"
+        return "🔧 Claude is experiencing technical issues. Please try again later."
     
     try:
         response = anthropic_client.messages.create(
-            model="claude-3-sonnet-20240229",
+            model="claude-3-haiku-20240307",
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}]
         )
         return response.content[0].text
     except Exception as e:
         print(f"❌ Anthropic API error: {str(e)}")
-        return f"Claude error: {str(e)}"
+        return "🔧 Claude is experiencing technical issues. Please try again later."
 
 def call_deepseek_api(prompt):
-    """Call DeepSeek API"""
+    """Call DeepSeek API via REST"""
     if not DEEPSEEK_API_KEY:
-        return "DeepSeek API not configured"
+        return "🔧 DeepSeek is experiencing technical issues. Please try again later."
     
     try:
         headers = {
@@ -90,42 +111,70 @@ def call_deepseek_api(prompt):
         data = {
             "model": "deepseek-chat",
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1000
+            "max_tokens": 1000,
+            "stream": False
         }
         response = requests.post(
             'https://api.deepseek.com/chat/completions',
             headers=headers,
-            json=data
+            json=data,
+            timeout=30
         )
-        response_data = response.json()
-        return response_data['choices'][0]['message']['content']
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            return response_data['choices'][0]['message']['content']
+        else:
+            print(f"❌ DeepSeek API error: {response.status_code} - {response.text}")
+            return "🔧 DeepSeek is experiencing technical issues. Please try again later."
+            
     except Exception as e:
-        print(f"❌ DeepSeek API error: {str(e)}")
-        return f"DeepSeek error: {str(e)}"
+        print(f"❌ DeepSeek error: {str(e)}")
+        return "🔧 DeepSeek is experiencing technical issues. Please try again later."
 
 def call_grok_api(prompt):
-    """Call xAI Grok API"""
+    """Call SuperGrok API"""
     if not GROK_API_KEY:
-        return "Grok API not configured - using simulated response"
+        return "🔧 Grok is experiencing technical issues. Please try again later."
     
     try:
-        # Grok API integration would go here
-        # For now, return a simulated Grok-like response
-        grok_responses = [
-            f"🦄 Grok: {prompt}? Interesting! Let me break this down with some humor and insight...",
-            f"🦄 Grok: Ah, a fascinating query! *adjusts virtual glasses* Let me dive into this...",
-            f"🦄 Grok: *chuckles* This reminds me of that time when... but let's focus on your question!"
-        ]
-        import random
-        return random.choice(grok_responses)
+        # SuperGrok API - adjust endpoint based on actual API docs
+        headers = {
+            'Authorization': f'Bearer {GROK_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        data = {
+            "model": "grok",  # Adjust model name if needed
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 1000,
+            "stream": False
+        }
+        
+        # Update this URL to match SuperGrok API endpoint
+        response = requests.post(
+            'https://api.supergrok.ai/v1/chat/completions',  # Adjust if needed
+            headers=headers,
+            json=data,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            # Adjust based on SuperGrok API response structure
+            if 'choices' in response_data and len(response_data['choices']) > 0:
+                return response_data['choices'][0]['message']['content']
+            else:
+                return "🔧 Grok is experiencing technical issues. Please try again later."
+        else:
+            print(f"❌ SuperGrok API error: {response.status_code} - {response.text}")
+            return "🔧 Grok is experiencing technical issues. Please try again later."
+            
     except Exception as e:
-        print(f"❌ Grok API error: {str(e)}")
-        return f"Grok error: {str(e)}"
+        print(f"❌ SuperGrok error: {str(e)}")
+        return "🔧 Grok is experiencing technical issues. Please try again later."
 
-# --- CONVERSATION CONTEXT FUNCTIONS ---
 def build_context_prompt(current_prompt, previous_messages, ai_name):
-    """Build a prompt that includes conversation context"""
-    
+    """Build prompt with conversation context"""
     if not previous_messages:
         return current_prompt
     
@@ -136,8 +185,9 @@ def build_context_prompt(current_prompt, previous_messages, ai_name):
             conversation_history += f"👤 Human: {msg.get('content', '')}\n"
         else:
             sender_name = msg.get('ai_name', 'AI')
-            sender_icon = get_ai_icon(sender_name)
-            conversation_history += f"{sender_icon} {sender_name}: {msg.get('content', '')}\n"
+            icons = {'grok': '🦄', 'gemini': '🌀', 'deepseek': '🎯', 'openai': '🤖', 'anthropic': '🧠'}
+            icon = icons.get(sender_name, '🤖')
+            conversation_history += f"{icon} {sender_name}: {msg.get('content', '')}\n"
     
     conversation_history += "--- END OF CONVERSATION HISTORY ---\n\n"
     
@@ -148,29 +198,17 @@ def build_context_prompt(current_prompt, previous_messages, ai_name):
 
 Current human prompt: "{current_prompt}"
 
-IMPORTANT CONTEXT: You can see the previous messages in this conversation above. Please:
-1. Read and acknowledge other AI perspectives when relevant
-2. Build upon, challenge, or synthesize previous responses  
-3. Engage in meaningful dialogue with both the human and other AIs
-4. Provide your unique perspective while considering the conversation context
-5. Reference specific points from other AIs when appropriate
+IMPORTANT: You can see the previous messages in this conversation. Please engage with the discussion by:
+- Acknowledging other AI perspectives when relevant
+- Building upon, challenging, or synthesizing previous responses  
+- Providing your unique perspective while considering the conversation context
+- Creating a meaningful dialogue with both the human and other AIs
 
-Your response (speak naturally as yourself):"""
+Your response:"""
     
     return enhanced_prompt
 
-def get_ai_icon(ai_name):
-    """Get icon for AI name"""
-    icons = {
-        'grok': '🦄',
-        'gemini': '🌀', 
-        'deepseek': '🎯',
-        'openai': '🤖',
-        'anthropic': '🧠'
-    }
-    return icons.get(ai_name, '🤖')
-
-# --- ROUTES ---
+# --- API ROUTES ---
 @app.route('/api/v1/broadcast', methods=['POST'])
 def broadcast_to_ai():
     try:
@@ -208,24 +246,21 @@ def broadcast_to_ai():
         
         for ai_name in ai_participants:
             try:
-                # Skip Claude if it's in the list but we don't have working API key
-                if ai_name == 'anthropic':
-                    response = "🔧 Claude is temporarily undergoing maintenance. Our team is working to restore access. Please try another AI model for now."
-                    print(f"⏸️  Skipping Claude (API key issue)")
+                # Build context-aware prompt for all AIs
+                context_prompt = build_context_prompt(moderator_prompt, previous_messages, ai_name)
+                
+                if ai_name == 'openai':
+                    response = call_openai_api(context_prompt)
+                elif ai_name == 'gemini':
+                    response = call_gemini_api(context_prompt)
+                elif ai_name == 'deepseek':
+                    response = call_deepseek_api(context_prompt)
+                elif ai_name == 'grok':
+                    response = call_grok_api(context_prompt)
+                elif ai_name == 'anthropic':
+                    response = call_anthropic_api(context_prompt)
                 else:
-                    # Build context-aware prompt
-                    context_prompt = build_context_prompt(moderator_prompt, previous_messages, ai_name)
-                    
-                    if ai_name == 'openai':
-                        response = call_openai_api(context_prompt)
-                    elif ai_name == 'gemini':
-                        response = call_gemini_api(context_prompt)
-                    elif ai_name == 'deepseek':
-                        response = call_deepseek_api(context_prompt)
-                    elif ai_name == 'grok':
-                        response = call_grok_api(context_prompt)
-                    else:
-                        continue
+                    continue
                 
                 ai_message = {
                     'ai_name': ai_name,
@@ -242,10 +277,9 @@ def broadcast_to_ai():
                 print(f"❌ Error calling {ai_name}: {str(e)}")
                 error_message = {
                     'ai_name': ai_name,
-                    'content': f"🔧 {ai_name} is experiencing technical difficulties. Please try again later.",
+                    'content': f"🔧 {ai_name} is experiencing technical issues. Please try again later.",
                     'timestamp': datetime.utcnow().isoformat(),
-                    'role': 'assistant',
-                    'error': str(e)
+                    'role': 'assistant'
                 }
                 responses.append(error_message)
                 session_storage[session_id]['messages'].append(error_message)
@@ -309,52 +343,47 @@ def health_check():
         'active_sessions': len(session_storage)
     })
 
-@app.route('/api/v1/debug/models', methods=['GET'])
-def debug_models():
+@app.route('/api/v1/debug/apis', methods=['GET'])
+def debug_apis():
     """Debug endpoint to check API connectivity"""
+    test_prompt = "Say 'API test successful' in a creative way."
+    
     status = {
-        'openai': 'not configured',
-        'gemini': 'not configured', 
-        'anthropic': 'not configured',
-        'deepseek': 'not configured',
-        'grok': 'not configured'
+        'openai': 'testing...',
+        'gemini': 'testing...', 
+        'anthropic': 'testing...',
+        'deepseek': 'testing...',
+        'grok': 'testing...'
     }
     
-    # Test OpenAI
-    if openai_client:
-        try:
-            test = openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": "Say 'test'"}],
-                max_tokens=5
-            )
-            status['openai'] = 'connected'
-        except Exception as e:
-            status['openai'] = f'error: {str(e)}'
+    # Test each API
+    try:
+        status['openai'] = call_openai_api(test_prompt)
+    except Exception as e:
+        status['openai'] = f'error: {str(e)}'
     
-    # Test Gemini
-    if GEMINI_API_KEY:
-        try:
-            model = genai.GenerativeModel('gemini-pro')
-            response = model.generate_content("Say 'test'")
-            status['gemini'] = 'connected'
-        except Exception as e:
-            status['gemini'] = f'error: {str(e)}'
+    try:
+        status['gemini'] = call_gemini_api(test_prompt)
+    except Exception as e:
+        status['gemini'] = f'error: {str(e)}'
     
-    # Test Anthropic
-    if anthropic_client:
-        try:
-            response = anthropic_client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=5,
-                messages=[{"role": "user", "content": "Say 'test'"}]
-            )
-            status['anthropic'] = 'connected'
-        except Exception as e:
-            status['anthropic'] = f'error: {str(e)}'
+    try:
+        status['anthropic'] = call_anthropic_api(test_prompt)
+    except Exception as e:
+        status['anthropic'] = f'error: {str(e)}'
+    
+    try:
+        status['deepseek'] = call_deepseek_api(test_prompt)
+    except Exception as e:
+        status['deepseek'] = f'error: {str(e)}'
+    
+    try:
+        status['grok'] = call_grok_api(test_prompt)
+    except Exception as e:
+        status['grok'] = f'error: {str(e)}'
     
     return jsonify(status)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port)
