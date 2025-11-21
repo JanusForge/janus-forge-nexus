@@ -517,15 +517,11 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
 const handleStripeCheckout = async (tierKey) => {
   setIsProcessing(true);
   try {
-    console.log('Starting pure client-side Stripe checkout...');
-    
-    // Load Stripe directly
     const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
     
-    // Your actual Stripe price IDs
     const tierPrices = {
-      'pro': 'price_1SVxLeGg8RUnSFObKobkPrcE', // Pro - $29/month
-      'enterprise': 'price_1SVxMEGg8RUnSFObB08Qfs7I' // Enterprise - $99/month
+      'pro': 'price_1SVxLeGg8RUnSFObKobkPrcE',
+      'enterprise': 'price_1SVxMEGg8RUnSFObB08Qfs7I'
     };
 
     const priceId = tierPrices[tierKey];
@@ -534,22 +530,17 @@ const handleStripeCheckout = async (tierKey) => {
       throw new Error('Invalid tier selected');
     }
 
-    console.log('Redirecting to Stripe with price ID:', priceId);
-
-    // PURE CLIENT-SIDE - NO SERVER API CALLS
-    const { error } = await stripe.redirectToCheckout({
-      lineItems: [{
-        price: priceId,
-        quantity: 1,
-      }],
+    // NEW METHOD: Use stripe.checkout.redirectToCheckout()
+    const { error } = await stripe.checkout.redirectToCheckout({
+      lineItems: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      successUrl: `${window.location.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+      successUrl: `${window.location.origin}/success`,
       cancelUrl: `${window.location.origin}/pricing`,
       customerEmail: user?.email,
     });
 
     if (error) {
-      console.error('Stripe client error:', error);
+      console.error('Stripe checkout error:', error);
       throw error;
     }
 
