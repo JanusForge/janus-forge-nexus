@@ -807,6 +807,35 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
   );
 }
 
+// --- ADD THIS WITH YOUR OTHER HOOKS ---
+const useSessionManager = (user) => {
+  const saveSession = (sessionData) => {
+    if (!user) return;
+    
+    const sessions = JSON.parse(localStorage.getItem(`janusForgeSessions_${user.id}`) || '[]');
+    
+    const existingIndex = sessions.findIndex(s => s.session_id === sessionData.session_id);
+    const enhancedSession = {
+      ...sessionData,
+      title: sessionData.messages?.[0]?.content?.slice(0, 50) + '...' || 'New Session',
+      message_count: sessionData.messages?.length || 0,
+      last_activity: new Date().toISOString(),
+      participants: sessionData.participants || []
+    };
+    
+    if (existingIndex >= 0) {
+      sessions[existingIndex] = enhancedSession;
+    } else {
+      sessions.unshift(enhancedSession);
+    }
+    
+    const trimmedSessions = sessions.slice(0, 50);
+    localStorage.setItem(`janusForgeSessions_${user.id}`, JSON.stringify(trimmedSessions));
+  };
+
+  return { saveSession };
+};
+
 // --- DASHBOARD COMPONENT ---
 function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, onUpgradePrompt, user }) {
   const [status, setStatus] = useState('');
@@ -815,6 +844,35 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
   const [participants, setParticipants] = useState(TIERS[usage.currentTier].aiModels);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const messagesEndRef = useRef(null);
+
+  // === NEW: ADD THESE RIGHT HERE ===
+  const { saveSession } = useSessionManager(user);
+
+  // Auto-save sessions when they update
+  useEffect(() => {
+    if (sessionHistory.length > 0 && user) {
+      const currentSession = sessionHistory[sessionHistory.length - 1];
+      if (currentSession.messages && currentSession.messages.length > 0) {
+        saveSession({
+          ...currentSession,
+          participants: participants
+        });
+      }
+    }
+  }, [sessionHistory, user, participants, saveSession]);
+
+  // Handle session reloading from History page
+  useEffect(() => {
+    const reloadSessionData = localStorage.getItem('reloadSessionData');
+    if (reloadSessionData && user) {
+      const sessionToReload = JSON.parse(reloadSessionData);
+      setSessionId(sessionToReload.session_id);
+      setSessionHistory([sessionToReload]);
+      setParticipants(sessionToReload.participants || TIERS[usage.currentTier].aiModels);
+      localStorage.removeItem('reloadSessionData');
+    }
+  }, [user]);
+
 
   // Get the canSendMessage function from useUsageTracker
   const { canSendMessage } = useUsageTracker(user);
@@ -1211,7 +1269,394 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
   );
 }
 
-// [Rest of the components remain the same but with user prop added...]
+
+// --- HISTORY PAGE COMPONENT ---
+function HistoryPage({ usage, user }) {
+  const [sessions, setSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredSessions, setFilteredSessions] = useState([]);
+  const navigate = useNavigate();
+
+  // Load session history from localStorage
+  useEffect(() => {
+    const loadSessions = () => {
+      const savedSessions = localStorage.getItem(`janusForgeSessions_${user?.id}`);
+      if (savedSessions) {
+        const parsedSessions = JSON.parse(savedSessions);
+        setSessions(parsedSessions);
+        setFilteredSessions(parsedSessions);
+      }
+    };
+
+    loadSessions();
+    
+    // Listen for session updates
+    const handleStorageUpdate = () => loadSessions();
+    window.addEventListener('storage', handleStorageUpdate);
+    
+    return () => window.removeEventListener('storage', handleStorageUpdate);
+  }, [user]);
+
+  // Filter sessions based on search
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredSessions(sessions);
+    } else {
+      const filtered = sessions.filter(session => 
+        session.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        session.messages?.some(msg => 
+          msg.content.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
+      setFilteredSessions(filtered);
+    }
+  }, [searchTerm, sessions]);
+
+  const exportSession = async (session, format) => {
+    setExportLoading(true);
+    try {
+      if (format === 'pdf') {
+        await exportToPDF(session);
+      } else if (format === 'docx') {
+        await exportToDOCX(session);
+      } else if (format === 'print') {
+        window.print();
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Export failed. Please try again.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const reloadSession = (session) => {
+    // Save session to reload and navigate to dashboard
+    localStorage.setItem('reloadSessionData', JSON.stringify(session));
+    navigate('/');
+  };
+
+  const deleteSession = (sessionId) => {
+    if (window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+      const updatedSessions = sessions.filter(s => s.session_id !== sessionId);
+      setSessions(updatedSessions);
+      localStorage.setItem(`janusForgeSessions_${user?.id}`, JSON.stringify(updatedSessions));
+    }
+  };
+
+  const clearAllSessions = () => {
+    if (window.confirm('Are you sure you want to delete ALL sessions? This action cannot be undone.')) {
+      setSessions([]);
+      setFilteredSessions([]);
+      localStorage.removeItem(`janusForgeSessions_${user?.id}`);
+    }
+  };
+
+  const getSessionPreview = (session) => {
+    if (!session.messages || session.messages.length === 0) {
+      return 'No messages in this session';
+    }
+    
+    const userMessage = session.messages.find(msg => msg.role === 'user');
+    return userMessage ? `${userMessage.content.slice(0, 80)}...` : 'AI-generated session';
+  };
+
+  const getParticipantIcons = (session) => {
+    if (!session.participants) return '';
+    return session.participants.map(p => AI_MODELS[p]?.icon || '❓').join(' ');
+  };
+
+  return (
+    <div style={{ 
+      padding: '20px', 
+      minHeight: '100vh', 
+      backgroundColor: '#f0f0f0',
+      maxWidth: '1200px',
+      margin: '0 auto'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+        gap: '15px'
+      }}>
+        <h2 style={{ margin: 0, color: '#333' }}>Conversation History</h2>
+        
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="Search sessions..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              fontSize: '14px',
+              minWidth: '200px'
+            }}
+          />
+          
+          {sessions.length > 0 && (
+            <button
+              onClick={clearAllSessions}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              🗑️ Clear All
+            </button>
+          )}
+        </div>
+      </div>
+
+      {sessions.length === 0 ? (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '60px 20px', 
+          color: '#666',
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>📚</div>
+          <h3 style={{ color: '#333', marginBottom: '10px' }}>No Conversation History Yet</h3>
+          <p style={{ marginBottom: '25px' }}>Start a session in the Dashboard to see your AI debates here!</p>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: TIERS[usage.currentTier].color,
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: '600'
+            }}
+          >
+            🚀 Start Your First Session
+          </button>
+        </div>
+      ) : filteredSessions.length === 0 ? (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '40px 20px', 
+          color: '#666',
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ fontSize: '36px', marginBottom: '15px' }}>🔍</div>
+          <h3 style={{ color: '#333', marginBottom: '10px' }}>No Matching Sessions</h3>
+          <p>No sessions found matching "{searchTerm}"</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          {filteredSessions.map(session => (
+            <div key={session.session_id} style={{
+              backgroundColor: 'white',
+              padding: '20px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              border: selectedSession?.session_id === session.session_id ? '2px solid #007bff' : '1px solid #e0e0e0',
+              transition: 'all 0.2s ease'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ flex: 1, minWidth: '300px' }}>
+                  <h3 style={{ margin: '0 0 8px 0', color: '#333', fontSize: '18px' }}>
+                    {session.title || `Session ${session.session_id.slice(-8)}`}
+                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                    <span style={{ color: '#666', fontSize: '14px' }}>
+                      📅 {new Date(session.created_at).toLocaleDateString()}
+                    </span>
+                    <span style={{ color: '#666', fontSize: '14px' }}>
+                      💬 {session.message_count || session.messages?.length || 0} messages
+                    </span>
+                    <span style={{ color: '#666', fontSize: '14px' }}>
+                      {getParticipantIcons(session)} {session.participants?.length || 0} AI models
+                    </span>
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => reloadSession(session)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    🔄 Reload
+                  </button>
+                  
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        exportSession(session, e.target.value);
+                        e.target.value = ''; // Reset selection
+                      }
+                    }}
+                    disabled={exportLoading}
+                    style={{
+                      padding: '8px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <option value="">📥 Export...</option>
+                    <option value="pdf">PDF Document</option>
+                    <option value="docx">Word Document</option>
+                    <option value="print">Print</option>
+                  </select>
+                  
+                  <button
+                    onClick={() => deleteSession(session.session_id)}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                    title="Delete Session"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+
+              {/* Session Preview */}
+              <div style={{
+                border: '1px solid #eee',
+                borderRadius: '6px',
+                padding: '15px',
+                backgroundColor: '#fafafa',
+                marginBottom: '15px'
+              }}>
+                <div style={{ fontWeight: '600', marginBottom: '8px', color: '#333' }}>
+                  Session Preview:
+                </div>
+                <div style={{ 
+                  color: '#666', 
+                  fontSize: '14px',
+                  lineHeight: '1.4',
+                  maxHeight: '60px',
+                  overflow: 'hidden'
+                }}>
+                  {getSessionPreview(session)}
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '15px', 
+                fontSize: '12px', 
+                color: '#888',
+                flexWrap: 'wrap'
+              }}>
+                <span>🆔 {session.session_id.slice(-12)}</span>
+                <span>⏱️ Last active: {new Date(session.last_activity || session.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- EXPORT UTILITY FUNCTIONS ---
+const exportToPDF = async (session) => {
+  // Simple PDF export implementation
+  const content = `
+    Janus Forge Nexus - Session Export
+    Session: ${session.title || session.session_id}
+    Created: ${new Date(session.created_at).toLocaleString()}
+    Participants: ${session.participants?.map(p => AI_MODELS[p]?.name || p).join(', ')}
+    Message Count: ${session.message_count || session.messages?.length || 0}
+    
+    ${'='.repeat(50)}
+    
+    ${session.messages?.map(msg => 
+      `${msg.role === 'user' ? '👤 You' : `${AI_MODELS[msg.ai_name]?.icon} ${AI_MODELS[msg.ai_name]?.name}`} (${new Date(msg.timestamp).toLocaleTimeString()}):\n${msg.content}\n\n`
+    ).join('')}
+  `;
+  
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `janus-session-${session.session_id.slice(-8)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  alert('Session exported as text file (PDF export coming soon!)');
+};
+
+const exportToDOCX = async (session) => {
+  alert('DOCX export functionality coming soon! For now, use the text export.');
+};
+
+// --- ENHANCED SESSION SAVING LOGIC ---
+const useSessionManager = (user) => {
+  const saveSession = (sessionData) => {
+    if (!user) return;
+    
+    const sessions = JSON.parse(localStorage.getItem(`janusForgeSessions_${user.id}`) || '[]');
+    
+    // Update existing session or add new one
+    const existingIndex = sessions.findIndex(s => s.session_id === sessionData.session_id);
+    const enhancedSession = {
+      ...sessionData,
+      title: sessionData.messages?.[0]?.content?.slice(0, 50) + '...' || 'New Session',
+      message_count: sessionData.messages?.length || 0,
+      last_activity: new Date().toISOString(),
+      participants: sessionData.participants || []
+    };
+    
+    if (existingIndex >= 0) {
+      sessions[existingIndex] = enhancedSession;
+    } else {
+      sessions.unshift(enhancedSession); // Add to beginning
+    }
+    
+    // Keep only latest 50 sessions
+    const trimmedSessions = sessions.slice(0, 50);
+    localStorage.setItem(`janusForgeSessions_${user.id}`, JSON.stringify(trimmedSessions));
+  };
+
+  return { saveSession };
+};
+
+
 
 // --- MAIN APP COMPONENT ---
 function App() {
