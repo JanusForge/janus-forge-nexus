@@ -517,8 +517,13 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
 const handleStripeCheckout = async (tierKey) => {
   setIsProcessing(true);
   try {
+    // Load Stripe with the latest method
     const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
     
+    if (!stripe) {
+      throw new Error('Stripe failed to load');
+    }
+
     const tierPrices = {
       'pro': 'price_1SVxLeGg8RUnSFObKobkPrcE',
       'enterprise': 'price_1SVxMEGg8RUnSFObB08Qfs7I'
@@ -530,20 +535,36 @@ const handleStripeCheckout = async (tierKey) => {
       throw new Error('Invalid tier selected');
     }
 
-    console.log('Creating Stripe checkout session...');
+    console.log('Stripe loaded:', !!stripe);
+    console.log('Stripe checkout available:', !!stripe.checkout);
 
-    // Use the NEW Stripe method
-    const { error } = await stripe.checkout.redirectToCheckout({
-      lineItems: [{ price: priceId, quantity: 1 }],
-      mode: 'subscription',
-      successUrl: `${window.location.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${window.location.origin}/pricing`,
-      customerEmail: user?.email,
-    });
+    // Try the new method first, fallback to old method if needed
+    let result;
+    if (stripe.checkout && stripe.checkout.redirectToCheckout) {
+      // NEW METHOD: stripe.checkout.redirectToCheckout()
+      result = await stripe.checkout.redirectToCheckout({
+        lineItems: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        successUrl: `${window.location.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${window.location.origin}/pricing`,
+        customerEmail: user?.email,
+      });
+    } else if (stripe.redirectToCheckout) {
+      // FALLBACK: Old method (deprecated but might still work)
+      result = await stripe.redirectToCheckout({
+        lineItems: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        successUrl: `${window.location.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${window.location.origin}/pricing`,
+        customerEmail: user?.email,
+      });
+    } else {
+      throw new Error('No valid Stripe checkout method available');
+    }
 
-    if (error) {
-      console.error('Stripe redirect error:', error);
-      throw error;
+    if (result.error) {
+      console.error('Stripe error:', result.error);
+      throw result.error;
     }
 
   } catch (error) {
