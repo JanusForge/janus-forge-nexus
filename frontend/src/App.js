@@ -807,34 +807,6 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
   );
 }
 
-// --- ADD THIS WITH YOUR OTHER HOOKS ---
-const useSessionManager = (user) => {
-  const saveSession = (sessionData) => {
-    if (!user) return;
-    
-    const sessions = JSON.parse(localStorage.getItem(`janusForgeSessions_${user.id}`) || '[]');
-    
-    const existingIndex = sessions.findIndex(s => s.session_id === sessionData.session_id);
-    const enhancedSession = {
-      ...sessionData,
-      title: sessionData.messages?.[0]?.content?.slice(0, 50) + '...' || 'New Session',
-      message_count: sessionData.messages?.length || 0,
-      last_activity: new Date().toISOString(),
-      participants: sessionData.participants || []
-    };
-    
-    if (existingIndex >= 0) {
-      sessions[existingIndex] = enhancedSession;
-    } else {
-      sessions.unshift(enhancedSession);
-    }
-    
-    const trimmedSessions = sessions.slice(0, 50);
-    localStorage.setItem(`janusForgeSessions_${user.id}`, JSON.stringify(trimmedSessions));
-  };
-
-  return { saveSession };
-};
 
 // --- DASHBOARD COMPONENT ---
 function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, onUpgradePrompt, user }) {
