@@ -726,16 +726,7 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
       e.preventDefault();
       handleSubmit();
     }
-Cannot find module 'stripe'
-Require stack:
-- /var/task/frontend/api/create-checkout-session.js
-Did you forget to add it to "dependencies" in `package.json`?
-Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
-Cannot find module 'stripe'
-Require stack:
-- /var/task/frontend/api/create-checkout-session.js
-Did you forget to add it to "dependencies" in `package.json`?
-Node.js process exited with exit status: 1. The logs above can help with debugging the issue.  };
+
 
   const messagesRemaining = TIERS[usage.currentTier].messageLimit - usage.messagesSent;
 
