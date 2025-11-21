@@ -175,39 +175,6 @@ const AI_MODELS = {
   // }
 };
 
-// --- TIER MANAGEMENT ---
-const TIERS = {
-  free: {
-    name: "Explorer",
-    sessionLimit: 3,
-    messageLimit: 20,
-    aiModels: ['gemini', 'deepseek'],
-    features: ["2 AI Models", "Basic Debate", "Session History", "User Account"],
-    color: "#6c757d",
-    price: "Free",
-    requiresAuth: true
-  },
-  pro: {
-    name: "Scholar", 
-    sessionLimit: 50,
-    messageLimit: 500,
-    aiModels: ['grok', 'gemini', 'deepseek', 'openai'],
-    features: ["4 AI Models", "Advanced Controls", "Export Features", "Priority Support", "User Account"],
-    color: "#007bff",
-    price: "$29/month",
-    requiresAuth: true
-  },
-  enterprise: {
-    name: "Master",
-    sessionLimit: 1000,
-    messageLimit: 10000,
-    aiModels: ['grok', 'gemini', 'deepseek', 'openai'], // REMOVE 'anthropic'
-    features: ["4 AI Models", "API Access", "White Label", "Dedicated Support", "User Account"],
-    color: "#28a745",
-    price: "$99/month",
-    requiresAuth: true
-  }
-};
 
 // --- USAGE TRACKING HOOK ---
 function useUsageTracker(user) {
