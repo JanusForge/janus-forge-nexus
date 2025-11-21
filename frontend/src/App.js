@@ -514,36 +514,31 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
 
   // Add Stripe checkout function
   const handleStripeCheckout = async (tierKey) => {
-    setIsProcessing(true);
-    try {
-      // Call your backend to create Stripe checkout session
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tier: tierKey,
-          userId: user?.id,
-          userEmail: user?.email
-        })
-      });
+  setIsProcessing(true);
+  try {
+    const response = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tier: tierKey,
+        userId: user?.id,
+        userEmail: user?.email
+      })
+    });
 
-      const { sessionId } = await response.json();
-
-      // Redirect to Stripe Checkout
-      const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
-      const { error } = await stripe.redirectToCheckout({ sessionId });
-
-      if (error) {
-        console.error('Stripe checkout error:', error);
-        alert('Payment failed: ' + error.message);
-      }
-    } catch (error) {
-      console.error('Checkout failed:', error);
-      alert('Payment processing error');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+    const { sessionId } = await response.json();
+    
+    const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+    const { error } = await stripe.redirectToCheckout({ sessionId });
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error('Checkout failed:', error);
+    alert('Payment failed: ' + error.message);
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   if (!isOpen) return null;
 
