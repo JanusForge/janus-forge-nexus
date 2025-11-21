@@ -573,18 +573,23 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
               <div style={{ marginBottom: '15px' }}>
                 <strong>AI Models:</strong>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '5px' }}>
-                  {tier?.aiModels.map(modelKey => (
-                    <span key={modelKey} style={{
-                      padding: '2px 8px',
-                      backgroundColor: AI_MODELS[modelKey].color + '20',
-                      color: AI_MODELS[modelKey].color,
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      border: `1px solid ${AI_MODELS[modelKey].color}`
-                    }}>
-                      {AI_MODELS[modelKey].icon} {AI_MODELS[modelKey].name}
-                    </span>
-                  ))}
+                  {tier?.aiModels.map(modelKey => {
+  const model = AI_MODELS[modelKey];
+  if (!model) return null;
+  
+  return (
+    <span key={modelKey} style={{
+      padding: '2px 8px',
+      backgroundColor: model.color + '20',
+      color: model.color,
+      borderRadius: '4px',
+      fontSize: '12px',
+      border: `1px solid ${model.color}`
+    }}>
+      {model.icon} {model.name}
+    </span>
+  );
+})}
                 </div>
               </div>
 
