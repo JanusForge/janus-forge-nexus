@@ -146,7 +146,7 @@ const AI_MODELS = {
     availableIn: ['pro', 'enterprise']
   },
   gemini: {
-    name: "Gemini", 
+    name: "Gemini",
     icon: "🌀",
     color: "#74b9ff",
     description: "Comprehensive analysis",
@@ -154,7 +154,7 @@ const AI_MODELS = {
   },
   deepseek: {
     name: "DeepSeek",
-    icon: "🎯", 
+    icon: "🎯",
     color: "#00b894",
     description: "Focused, analytical insights",
     availableIn: ['free', 'pro', 'enterprise']
@@ -163,16 +163,16 @@ const AI_MODELS = {
     name: "OpenAI",
     icon: "🤖",
     color: "#8e44ad",
-    description: "Balanced, nuanced responses", 
+    description: "Balanced, nuanced responses",
     availableIn: ['pro', 'enterprise']
-  }
+  }, // ✅ ADD THIS COMMA
   anthropic: {
     name: "Claude",
     icon: "🧠",
     color: "#e67e22",
     description: "Thoughtful, principled analysis",
     availableIn: ['enterprise']
-   }
+  }
 };
 
 
