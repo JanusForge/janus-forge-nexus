@@ -700,7 +700,6 @@ const handleStripeCheckout = async (tierKey) => {
         </button>
       </div>
     </div>
-   </div>
   );
 }
 
