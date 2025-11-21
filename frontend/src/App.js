@@ -554,12 +554,15 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
         
         <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
           {Object.entries(TIERS).map(([tierKey, tier]) => (
-            <div key={tierKey} style={{
-              border: `2px solid ${tierKey === currentTier ? tier.color : '#ddd'}`,
-              borderRadius: '8px',
-              padding: '20px',
-              backgroundColor: tierKey === currentTier ? `${tier.color}10` : 'white'
-            }}>
+  tier && (  // ADD THIS SAFETY CHECK
+  <div key={tierKey} style={{
+    border: `2px solid ${tierKey === currentTier ? tier.color : '#ddd'}`,
+    borderRadius: '8px',
+    padding: '20px',
+    backgroundColor: tierKey === currentTier ? `${tier.color}10` : 'white'
+  }}>
+  )  // CLOSE THE SAFETY CHECK
+))}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h3 style={{ color: tier.color, margin: 0 }}>{tier.name}</h3>
                 <span style={{ fontSize: '18px', fontWeight: 'bold', color: tier.color }}>
