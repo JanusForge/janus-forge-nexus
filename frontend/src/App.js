@@ -1085,7 +1085,7 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
                         <>
                           {aiConfig?.icon} {aiConfig?.name || aiName}
                         </>
-                      : user ? `👤 ${user.name}` : '👤 You'}
+                       ) : (user ? `👤 ${user.name}` : '👤 You')}
                       <span style={{
                         marginLeft: '10px',
                         fontSize: isMobile ? '11px' : '12px',
@@ -1499,13 +1499,17 @@ function App() {
                 user={user}
               />
             } />
-            <Route path="/history" element={
-              <HistoryPage 
-                usage={usage}
-                incrementUsage={incrementUsage}
-                user={user}
-              />
-            } />
+
+{/* Temporarily disabled until HistoryPage is implemented
+<Route path="/history" element={
+  <HistoryPage
+    usage={usage}
+    incrementUsage={incrementUsage}
+    user={user}
+  />
+} />
+*/}
+
             <Route path="/contact" element={
               <div style={{
                 padding: isMobile ? '15px' : '20px',
