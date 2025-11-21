@@ -166,14 +166,13 @@ const AI_MODELS = {
     description: "Balanced, nuanced responses", 
     availableIn: ['pro', 'enterprise']
   }
-  // COMMENT OUT CLAUDE TEMPORARILY:
-  // anthropic: {
-  //   name: "Claude",
-  //   icon: "🧠",
-  //   color: "#e67e22",
-  //   description: "Thoughtful, principled analysis",
-  //   availableIn: ['enterprise']
-  // }
+  anthropic: {
+    name: "Claude",
+    icon: "🧠",
+    color: "#e67e22",
+    description: "Thoughtful, principled analysis",
+    availableIn: ['enterprise']
+   }
 };
 
 
