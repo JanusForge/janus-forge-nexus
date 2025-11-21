@@ -32,10 +32,10 @@ export default async function handler(req, res) {
       });
     }
 
-    const tierPrices = {
-      'pro': 'price_1OezL2RpCg2hG8w5Y7y8Q9qX', // Scholar - $29/month
-      'enterprise': 'price_1OezL2RpCg2hG8w5Y7y8Q9qY' // Master - $99/month
-    };
+const tierPrices = {
+  'pro': 'price_1SVxLeGg8RUnSFObKobkPrcE', // Pro tier - $29/month
+  'enterprise': 'price_1SVxMEGg8RUnSFObB08Qfs7I' // Enterprise tier - $99/month
+};
 
     const priceId = tierPrices[tier];
     
