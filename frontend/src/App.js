@@ -513,28 +513,49 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Add Stripe checkout function
-  const handleStripeCheckout = async (tierKey) => {
+// In your UpgradeModal component - CLIENT-ONLY APPROACH
+const handleStripeCheckout = async (tierKey) => {
   setIsProcessing(true);
   try {
-    const response = await fetch('/api/create-checkout-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tier: tierKey,
-        userId: user?.id,
-        userEmail: user?.email
-      })
+    console.log('Starting pure client-side Stripe checkout...');
+    
+    // Load Stripe directly
+    const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+    
+    // Your actual Stripe price IDs
+    const tierPrices = {
+      'pro': 'price_1SVxLeGg8RUnSFObKobkPrcE', // Pro - $29/month
+      'enterprise': 'price_1SVxMEGg8RUnSFObB08Qfs7I' // Enterprise - $99/month
+    };
+
+    const priceId = tierPrices[tierKey];
+    
+    if (!priceId) {
+      throw new Error('Invalid tier selected');
+    }
+
+    console.log('Redirecting to Stripe with price ID:', priceId);
+
+    // PURE CLIENT-SIDE - NO SERVER API CALLS
+    const { error } = await stripe.redirectToCheckout({
+      lineItems: [{
+        price: priceId,
+        quantity: 1,
+      }],
+      mode: 'subscription',
+      successUrl: `${window.location.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${window.location.origin}/pricing`,
+      customerEmail: user?.email,
     });
 
-    const { sessionId } = await response.json();
-    
-    const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
-    const { error } = await stripe.redirectToCheckout({ sessionId });
-    
-    if (error) throw error;
+    if (error) {
+      console.error('Stripe client error:', error);
+      throw error;
+    }
+
   } catch (error) {
     console.error('Checkout failed:', error);
-    alert('Payment failed: ' + error.message);
+    alert(`Payment setup failed: ${error.message}`);
   } finally {
     setIsProcessing(false);
   }
@@ -705,7 +726,16 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
       e.preventDefault();
       handleSubmit();
     }
-  };
+Cannot find module 'stripe'
+Require stack:
+- /var/task/frontend/api/create-checkout-session.js
+Did you forget to add it to "dependencies" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Cannot find module 'stripe'
+Require stack:
+- /var/task/frontend/api/create-checkout-session.js
+Did you forget to add it to "dependencies" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.  };
 
   const messagesRemaining = TIERS[usage.currentTier].messageLimit - usage.messagesSent;
 
