@@ -513,37 +513,25 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Add Stripe checkout function
-// In your UpgradeModal component - CLIENT-ONLY APPROACH
+// Alternative: Create checkout session via your serverless function
 const handleStripeCheckout = async (tierKey) => {
   setIsProcessing(true);
   try {
-    const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
-    
-    const tierPrices = {
-      'pro': 'price_1SVxLeGg8RUnSFObKobkPrcE',
-      'enterprise': 'price_1SVxMEGg8RUnSFObB08Qfs7I'
-    };
-
-    const priceId = tierPrices[tierKey];
-    
-    if (!priceId) {
-      throw new Error('Invalid tier selected');
-    }
-
-    // NEW METHOD: Use stripe.checkout.redirectToCheckout()
-    const { error } = await stripe.checkout.redirectToCheckout({
-      lineItems: [{ price: priceId, quantity: 1 }],
-      mode: 'subscription',
-      successUrl: `${window.location.origin}/success`,
-      cancelUrl: `${window.location.origin}/pricing`,
-      customerEmail: user?.email,
+    const response = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tier: tierKey,
+        userEmail: user?.email,
+        userId: user?.id
+      })
     });
 
-    if (error) {
-      console.error('Stripe checkout error:', error);
-      throw error;
-    }
-
+    const { url } = await response.json();
+    
+    // Redirect directly to the checkout URL
+    window.location.href = url;
+    
   } catch (error) {
     console.error('Checkout failed:', error);
     alert(`Payment setup failed: ${error.message}`);
