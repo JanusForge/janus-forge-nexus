@@ -564,16 +564,16 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
   )  // CLOSE THE SAFETY CHECK
 ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h3 style={{ color: tier.color, margin: 0 }}>{tier.name}</h3>
+                <h3 style={{ color: tier.color, margin: 0 }}>{tier?.name}</h3>
                 <span style={{ fontSize: '18px', fontWeight: 'bold', color: tier.color }}>
-                  {tier.price}
+                  {tier?.price}
                 </span>
               </div>
               
               <div style={{ marginBottom: '15px' }}>
                 <strong>AI Models:</strong>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '5px' }}>
-                  {tier.aiModels.map(modelKey => (
+                  {tier?.aiModels.map(modelKey => (
                     <span key={modelKey} style={{
                       padding: '2px 8px',
                       backgroundColor: AI_MODELS[modelKey].color + '20',
@@ -607,7 +607,7 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
                 style={{
                   width: '100%',
                   padding: '10px',
-                  backgroundColor: tierKey === currentTier ? '#6c757d' : tier.color,
+                  backgroundColor: tierKey === currentTier ? '#6c757d' : (tier?.color || '#ddd'),
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
