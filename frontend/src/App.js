@@ -726,7 +726,7 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
       e.preventDefault();
       handleSubmit();
     }
-
+  }; // <--- FIXED HERE: You were missing this closing brace and semicolon!
 
   const messagesRemaining = TIERS[usage.currentTier].messageLimit - usage.messagesSent;
 
@@ -764,10 +764,10 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
         value={localPrompt}
         onChange={(e) => setLocalPrompt(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={sessionId ? 
-          (canSendMessage ? 
-            "Type your message to the AI ensemble... (Press Enter to send)" : 
-            "Message limit reached - upgrade to continue") : 
+        placeholder={sessionId ?
+          (canSendMessage ?
+            "Type your message to the AI ensemble... (Press Enter to send)" :
+            "Message limit reached - upgrade to continue") :
           "Create a session first..."}
         disabled={!sessionId || isSending || !canSendMessage}
         style={{
@@ -794,7 +794,7 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
         disabled={!sessionId || !localPrompt.trim() || isSending || !canSendMessage}
         style={{
           padding: '12px 24px',
-          backgroundColor: sessionId && localPrompt.trim() && !isSending && canSendMessage ? 
+          backgroundColor: sessionId && localPrompt.trim() && !isSending && canSendMessage ?
             TIERS[usage.currentTier].color : '#6c757d',
           color: 'white',
           border: 'none',
@@ -807,7 +807,7 @@ function PromptInput({ onSend, sessionId, isSending = false, usage, canSendMessa
           opacity: sessionId && localPrompt.trim() && !isSending && canSendMessage ? 1 : 0.6
         }}
       >
-        {isSending ? '🔄 Broadcasting...' : 
+        {isSending ? '🔄 Broadcasting...' :
          !canSendMessage ? '💎 Upgrade to Continue' : '🚀 Send to AI Ensemble'}
       </button>
 
