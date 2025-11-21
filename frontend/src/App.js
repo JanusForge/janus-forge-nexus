@@ -799,12 +799,13 @@ function Dashboard({ sessionIdFromUrl, usage, incrementUsage, canCreateSession, 
     const newSessionId = `session-${Date.now()}-${user?.id || 'anonymous'}`;
 
     hubClient.post('/broadcast', {
-      session_id: newSessionId,
-      ai_participants: participants,
-      initial_prompt: "Session initialized - ready for prompts!",
-      tier: usage.currentTier,
-      user_id: user?.id
-    })
+  session_id: newSessionId,
+  ai_participants: participants,
+  moderator_prompt: "Session initialized - ready for prompts!",  // ✅ CORRECT
+  tier: usage.currentTier,
+  user_id: user?.id
+})
+
     .then(response => {
       setSessionId(newSessionId);
       setStatus('New session created! Ready for prompts.');
