@@ -2005,6 +2005,7 @@ function App() {
                 <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
                   Join us in building the future of AI collaboration.
                 </p>
+               </div>
             } />
           </Routes>
         </main>
