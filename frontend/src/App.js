@@ -1253,60 +1253,7 @@ function App() {
           error={authError}
         />
 
-        // Add this component definition right before your main App return statement
-const DebugInfo = () => {
-  const userTier = currentUser?.tier || 'unknown';
-  const sessionCount = sessions?.length || 0;
-  const shouldShowUpgrade = userTier !== 'master';
-  
-  return (
-    <div style={{
-      position: 'fixed',
-      top: '10px',
-      right: '10px',
-      background: '#ff4444',
-      color: 'white',
-      padding: '10px',
-      borderRadius: '5px',
-      fontSize: '12px',
-      zIndex: 10000,
-      border: '2px solid white',
-      maxWidth: '300px'
-    }}>
-      <h4>🚨 DEBUG INFO</h4>
-      <div><strong>User Tier:</strong> {userTier}</div>
-      <div><strong>Sessions:</strong> {sessionCount}/1000</div>
-      <div><strong>Upgrade Button:</strong> {shouldShowUpgrade ? 'SHOULD SHOW' : 'HIDDEN'}</div>
-      <div><strong>User ID:</strong> {currentUser?.id || 'none'}</div>
-      <div><strong>AI Models:</strong> {currentUser?.aiModels?.length || 0}</div>
-      
-      {/* Temporary force upgrade button */}
-      <button onClick={() => {
-        const updatedUser = {
-          ...currentUser,
-          tier: 'master',
-          sessionLimit: 1000,
-          messageLimit: 10000,
-          aiModels: ['grok', 'gemini', 'deepseek', 'openai', 'claude']
-        };
-        setCurrentUser(updatedUser);
-        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        alert('Forced Master Tier - Refresh to see if it sticks');
-      }} style={{
-        marginTop: '5px',
-        background: 'green',
-        color: 'white',
-        border: 'none',
-        padding: '5px 10px',
-        borderRadius: '3px',
-        cursor: 'pointer'
-      }}>
-        FORCE MASTER TIER
-      </button>
-    </div>
-  );
-};
-<DebugInfo />
+       
         {/* Onboarding Tour */}
         {showOnboarding && user && (
           <OnboardingTour 
@@ -1507,23 +1454,24 @@ const DebugInfo = () => {
               )}
 
               {/* Upgrade Button */}
-              {user && usage.currentTier !== 'enterprise' && (
-                <button
-                  onClick={() => setShowUpgradeModal(true)}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: TIERS.pro.color,
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  💎 Upgrade
-                </button>
+{user && currentUser?.tier !== 'master' && (
+  <button
+    onClick={() => setShowUpgradeModal(true)}
+    style={{
+      padding: '8px 16px',
+      backgroundColor: TIERS.pro.color,
+      color: 'white',
+      border: 'none',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '600',
+      whiteSpace: 'nowrap'
+    }}
+  >
+    💎 Upgrade
+  </button>
+)}
               )}
             </div>
           </div>
