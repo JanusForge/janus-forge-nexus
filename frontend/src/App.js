@@ -1969,15 +1969,12 @@ function App() {
               />
             } />
 
-{/* Temporarily disabled until HistoryPage is implemented
-<Route path="/history" element={
-  <HistoryPage
-    usage={usage}
-    incrementUsage={incrementUsage}
-    user={user}
-  />
-} />
-*/}
+            <Route path="/history" element={
+              <HistoryPage
+               usage={usage}
+               user={user}
+            />
+            } />
 
             <Route path="/contact" element={
               <div style={{
