@@ -618,7 +618,7 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
                 {tierKey === currentTier ? 'Current Plan' : 'Upgrade Now'}
               </button>
             </div>
-          ))}
+          )))}
         </div>
 
         <button
