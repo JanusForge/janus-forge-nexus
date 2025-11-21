@@ -4,7 +4,7 @@ import axios from 'axios';
 import './App.css';
 
 // --- CONFIGURATION ---
-const API_BASE_URL = "https://janus-forge-nexus.onrender.com/api/v1";
+const API_BASE_URL = "https://janusforge-api-gateway.onrender.com/api/v1";
 const hubClient = axios.create({
   baseURL: API_BASE_URL,
 });
