@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+WWimport React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Route, Routes, NavLink, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
+import { loadStripe } from '@stripe/stripe-js';
 
 // --- CONFIGURATION ---
 const API_BASE_URL = "https://janusforge-api-gateway.onrender.com/api/v1";
@@ -510,6 +511,41 @@ function OnboardingTour({ onComplete, currentTier, user }) {
 
 // --- UPGRADE MODAL COMPONENT ---
 function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Add Stripe checkout function
+  const handleStripeCheckout = async (tierKey) => {
+    setIsProcessing(true);
+    try {
+      // Call your backend to create Stripe checkout session
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tier: tierKey,
+          userId: user?.id,
+          userEmail: user?.email
+        })
+      });
+
+      const { sessionId } = await response.json();
+
+      // Redirect to Stripe Checkout
+      const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+      const { error } = await stripe.redirectToCheckout({ sessionId });
+
+      if (error) {
+        console.error('Stripe checkout error:', error);
+        alert('Payment failed: ' + error.message);
+      }
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      alert('Payment processing error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -537,7 +573,7 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
         <h2 style={{ textAlign: 'center', marginBottom: '30px', color: '#333' }}>
           Upgrade Your AI Debate Experience
         </h2>
-        
+
         {user && (
           <div style={{
             backgroundColor: '#e8f4fd',
@@ -551,79 +587,85 @@ function UpgradeModal({ isOpen, onClose, currentTier, onUpgrade, user }) {
             </p>
           </div>
         )}
-        
+
         <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
-          {Object.entries(TIERS).map(([tierKey, tier]) => (
-  tier && (
-  <div key={tierKey} style={{
-    border: `2px solid ${tierKey === currentTier ? tier.color : '#ddd'}`,
-    borderRadius: '8px',
-    padding: '20px',
-    backgroundColor: tierKey === currentTier ? `${tier.color}10` : 'white'
-  }}>
-  )  
-))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h3 style={{ color: tier.color, margin: 0 }}>{tier?.name}</h3>
-                <span style={{ fontSize: '18px', fontWeight: 'bold', color: tier.color }}>
-                  {tier?.price}
-                </span>
-              </div>
-              
-              <div style={{ marginBottom: '15px' }}>
-                <strong>AI Models:</strong>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '5px' }}>
-                  {tier?.aiModels.map(modelKey => {
-  const model = AI_MODELS[modelKey];
-  if (!model) return null;
-  
-  return (
-    <span key={modelKey} style={{
-      padding: '2px 8px',
-      backgroundColor: model.color + '20',
-      color: model.color,
-      borderRadius: '4px',
-      fontSize: '12px',
-      border: `1px solid ${model.color}`
-    }}>
-      {model.icon} {model.name}
-    </span>
-  );
-})}
+          {Object.entries(TIERS).map(([tierKey, tier]) => {
+            if (!tier) return null;
+            
+            return (
+              <div key={tierKey} style={{
+                border: `2px solid ${tierKey === currentTier ? tier.color : '#ddd'}`,
+                borderRadius: '8px',
+                padding: '20px',
+                backgroundColor: tierKey === currentTier ? `${tier.color}10` : 'white'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ color: tier.color, margin: 0 }}>{tier.name}</h3>
+                  <span style={{ fontSize: '18px', fontWeight: 'bold', color: tier.color }}>
+                    {tier.price}
+                  </span>
                 </div>
-              </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <strong>Limits:</strong>
-                <div style={{ fontSize: '14px', color: '#666' }}>
-                  {tier.sessionLimit} sessions • {tier.messageLimit} messages
+                <div style={{ marginBottom: '15px' }}>
+                  <strong>AI Models:</strong>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '5px' }}>
+                    {tier.aiModels.map(modelKey => {
+                      const model = AI_MODELS[modelKey];
+                      if (!model) return null;
+
+                      return (
+                        <span key={modelKey} style={{
+                          padding: '2px 8px',
+                          backgroundColor: model.color + '20',
+                          color: model.color,
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          border: `1px solid ${model.color}`
+                        }}>
+                          {model.icon} {model.name}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                <div style={{ marginBottom: '15px' }}>
+                  <strong>Limits:</strong>
+                  <div style={{ fontSize: '14px', color: '#666' }}>
+                    {tier.sessionLimit} sessions • {tier.messageLimit} messages
+                  </div>
+                </div>
+
+                <ul style={{ fontSize: '14px', color: '#666', paddingLeft: '20px', marginBottom: '15px' }}>
+                  {tier.features.map((feature, index) => (
+                    <li key={index}>{feature}</li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={() => handleStripeCheckout(tierKey)}
+                  disabled={tierKey === currentTier || isProcessing}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    backgroundColor: tierKey === currentTier ? '#6c757d' : (tier.color || '#ddd'),
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: tierKey === currentTier ? 'default' : 'pointer',
+                    fontWeight: '600'
+                  }}
+                >
+                  {tierKey === currentTier
+                    ? 'Current Plan'
+                    : isProcessing
+                      ? 'Processing...'
+                      : 'Upgrade Now'
+                  }
+                </button>
               </div>
-
-              <ul style={{ fontSize: '14px', color: '#666', paddingLeft: '20px', marginBottom: '15px' }}>
-                {tier.features.map((feature, index) => (
-                  <li key={index}>{feature}</li>
-                ))}
-              </ul>
-
-              <button
-                onClick={() => onUpgrade(tierKey)}
-                disabled={tierKey === currentTier}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  backgroundColor: tierKey === currentTier ? '#6c757d' : (tier?.color || '#ddd'),
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: tierKey === currentTier ? 'default' : 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                {tierKey === currentTier ? 'Current Plan' : 'Upgrade Now'}
-              </button>
-            </div>
-          )))}
+            );
+          })}
         </div>
 
         <button
@@ -1454,7 +1496,7 @@ function App() {
               )}
 
               {/* Upgrade Button */}
-{user && currentUser?.tier !== 'master' && (
+{user && usage?.currentTier !== 'master' && (
   <button
     onClick={() => setShowUpgradeModal(true)}
     style={{
@@ -1472,7 +1514,7 @@ function App() {
     💎 Upgrade
   </button>
 )}
-              )}
+              
             </div>
           </div>
         </header>
