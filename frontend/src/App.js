@@ -412,6 +412,7 @@ function Header({ user, logout }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         {/* VIDEO TAG */}
         <video src={janusLogoVideo} autoPlay loop muted playsInline className="janus-logo-video" style={videoStyle} />
+        <style>{`.janus-logo-video { width: 250px !important; height: 250px !important; }`}</style>
         <div>
           <h1 style={{ margin: 0, fontSize: '26px', color: '#333', lineHeight: '1.1' }}>Janus Forge Nexus</h1>
           <p style={{ margin: '6px 0 0 0', fontSize: '15px', color: '#666', fontStyle: 'italic', letterSpacing: '0.5px' }}>Thesis. Antithesis. Humanity.</p>
@@ -475,7 +476,7 @@ function AppContent() {
         {user && <Footer />}
       </div>
     </Router>
-         );
-                      }
+  );
+}
 
 export default function App() { return <AuthProvider><AppContent /></AuthProvider>; }
