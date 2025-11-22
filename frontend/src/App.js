@@ -59,11 +59,11 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' };
   const btnStyle = { width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' };
-  const videoStyle = { width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' };
+  const videoStyle = { width: '150px', height: '150px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' };
 
   return (
     <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '450px', width: '90%', textAlign: 'center' }}>
         
         {/* SINGLE LINE VIDEO TAG TO FIX LINTER */}
         <video src={janusLogoVideo} autoPlay loop muted playsInline style={videoStyle} />
@@ -376,39 +376,38 @@ function Dashboard({ onUpgradePrompt }) {
   );
 }
 
-// --- NEW FOOTER COMPONENT ---
 function Footer() {
-  const footerStyle = {
-    textAlign: 'center',
-    padding: '30px 20px',
-    backgroundColor: '#fff',
-    borderTop: '1px solid #eaeaea',
-    color: '#888',
-    fontSize: '13px',
-    marginTop: 'auto'
-  };
+    const footerStyle = {
+        textAlign: 'center',
+        padding: '30px 20px',
+        backgroundColor: '#fff',
+        borderTop: '1px solid #eaeaea',
+        color: '#888',
+        fontSize: '13px',
+        marginTop: 'auto' 
+    };
 
-  return (
-    <footer style={footerStyle}>
-      <div style={{ marginBottom: '10px', fontWeight: '600', color: '#555' }}>Janus Forge Accelerators, LLC</div>
-      <p style={{ margin: '0' }}>
-        © {new Date().getFullYear()} All rights reserved. A registered Kentucky Limited Liability Company.
-      </p>
-      <p style={{ fontSize: '11px', marginTop: '8px', color: '#aaa' }}>
-        Thesis. Antithesis. Humanity.
-      </p>
-    </footer>
-  );
+    return (
+        <footer style={footerStyle}>
+            <div style={{ marginBottom: '10px', fontWeight: '600', color: '#555' }}>Janus Forge Accelerators, LLC</div>
+            <p style={{ margin: '0' }}>
+                © {new Date().getFullYear()} All rights reserved. A registered Kentucky Limited Liability Company.
+            </p>
+            <p style={{ fontSize: '11px', marginTop: '8px', color: '#aaa' }}>
+                Thesis. Antithesis. Humanity.
+            </p>
+        </footer>
+    );
 }
 
 function Header({ user, logout }) {
-  // --- SINGLE LINE VIDEO TAG ---
+  // Force the video size here too!
   const videoStyle = { width: '150px', height: '150px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }; 
   
   return (
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 30px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        {/* Single line to fix linter */}
+        {/* SINGLE LINE VIDEO TAG TO FIX LINTER */}
         <video src={janusLogoVideo} autoPlay loop muted playsInline style={videoStyle} />
         <div>
           <h1 style={{ margin: 0, fontSize: '26px', color: '#333', lineHeight: '1.1' }}>Janus Forge Nexus</h1>
