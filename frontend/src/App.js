@@ -59,11 +59,13 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' };
   const btnStyle = { width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' };
-  const videoStyle = { width: '150px', height: '150px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' };
+  
+  // LOGO SIZE IN MODAL: 250px
+  const videoStyle = { width: '250px', height: '250px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' }; 
 
   return (
     <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '450px', width: '90%', textAlign: 'center' }}>
+      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '500px', width: '90%', textAlign: 'center' }}>
         
         {/* VIDEO LOGO */}
         <video src={janusLogoVideo} autoPlay loop muted playsInline style={videoStyle} />
@@ -402,8 +404,8 @@ function Footer() {
 }
 
 function Header({ user, logout }) {
-  // --- UPDATED VIDEO STYLE: 150px ---
-  const videoStyle = { width: '150px', height: '150px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }; 
+  // --- UPDATED VIDEO STYLE: 250px ---
+  const videoStyle = { width: '250px', height: '250px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }; 
   
   return (
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 30px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
