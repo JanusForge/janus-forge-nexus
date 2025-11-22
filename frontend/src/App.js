@@ -59,35 +59,25 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' };
   const btnStyle = { width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' };
-  const videoStyle = { width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' }; // Increased size
+  const videoStyle = { width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' }; // Large logo in modal too
 
   return (
     <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
-        <video 
-          src={janusLogoVideo} 
-          autoPlay 
-          loop 
-          muted 
-          playsInline 
-          style={videoStyle} 
-        />
+        <video src={janusLogoVideo} autoPlay loop muted playsInline style={videoStyle} />
         
         <h2 style={{ textAlign: 'center', color: '#333', marginTop: 0 }}>{isLoginMode ? 'Welcome Back' : 'Join Janus Forge'}</h2>
         {error && <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', marginBottom: '10px', borderRadius: '4px' }}>{error}</div>}
-        
         <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
           {!isLoginMode && <input type="text" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={inputStyle} required />}
           <input type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={inputStyle} required />
           <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ ...inputStyle, marginBottom: '20px' }} required />
           <button type="submit" disabled={isLoading} style={btnStyle}>{isLoading ? 'Processing...' : (isLoginMode ? 'Sign In' : 'Create Account')}</button>
         </form>
-        
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
           <button onClick={onViewDemo} style={{ width: '100%', padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>👁️ View Live Demo Session</button>
           <p style={{ textAlign: 'center', fontSize: '14px', cursor: 'pointer', color: 'blue', margin: 0 }} onClick={() => setIsLoginMode(!isLoginMode)}>{isLoginMode ? "Need an account? Sign up" : "Have an account? Sign in"}</p>
         </div>
-
         {user && <button onClick={onClose} style={{ marginTop: '10px', width: '100%', padding: '8px' }}>Close</button>}
       </div>
     </div>
@@ -381,34 +371,36 @@ function Dashboard({ onUpgradePrompt }) {
   );
 }
 
+// --- NEW FOOTER COMPONENT ---
 function Footer() {
-    const footerStyle = {
-        textAlign: 'center',
-        padding: '20px',
-        backgroundColor: '#fff',
-        borderTop: '1px solid #ddd',
-        color: '#666',
-        fontSize: '14px',
-        marginTop: '40px'
-    };
+  const footerStyle = {
+    textAlign: 'center',
+    padding: '30px 20px',
+    backgroundColor: '#fff',
+    borderTop: '1px solid #eaeaea',
+    color: '#888',
+    fontSize: '13px',
+    marginTop: 'auto' // Pushes footer to bottom
+  };
 
-    return (
-        <footer style={footerStyle}>
-            <p>
-                © {new Date().getFullYear()} Janus Forge Accelerators, LLC. All rights reserved.
-            </p>
-            <p style={{ fontSize: '12px', marginTop: '5px' }}>
-                A registered Kentucky Limited Liability Company.
-            </p>
-        </footer>
-    );
+  return (
+    <footer style={footerStyle}>
+      <div style={{ marginBottom: '10px', fontWeight: '600', color: '#555' }}>Janus Forge Accelerators, LLC</div>
+      <p style={{ margin: '0' }}>
+        © {new Date().getFullYear()} All rights reserved. A registered Kentucky Limited Liability Company.
+      </p>
+      <p style={{ fontSize: '11px', marginTop: '8px', color: '#aaa' }}>
+        Thesis. Antithesis. Humanity.
+      </p>
+    </footer>
+  );
 }
 
 function Header({ user, logout }) {
-  const videoStyle = { width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover' }; // Larger logo
+  const videoStyle = { width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover' }; // Increased size
   return (
-    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 30px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         <video 
           src={janusLogoVideo} 
           autoPlay 
@@ -418,14 +410,17 @@ function Header({ user, logout }) {
           style={videoStyle} 
         />
         <div>
-          <h1 style={{ margin: 0, fontSize: '24px', color: '#333', lineHeight: '1' }}>Janus Forge Nexus</h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#666', fontStyle: 'italic' }}>Thesis. Antithesis. Humanity.</p>
+          <h1 style={{ margin: 0, fontSize: '26px', color: '#333', lineHeight: '1.1' }}>Janus Forge Nexus</h1>
+          <p style={{ margin: '6px 0 0 0', fontSize: '15px', color: '#666', fontStyle: 'italic', letterSpacing: '0.5px' }}>Thesis. Antithesis. Humanity.</p>
         </div>
       </div>
       <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        <NavLink to="/" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600' })}>Dashboard</NavLink>
-        <NavLink to="/history" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600' })}>History</NavLink>
-        {user && <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ fontSize: '14px', color: '#333' }}>👋 {user.name || user.email}</span><button onClick={logout} style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Logout</button></div>}
+        <NavLink to="/" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600', fontSize: '16px' })}>Dashboard</NavLink>
+        <NavLink to="/history" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600', fontSize: '16px' })}>History</NavLink>
+        {user && <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <span style={{ fontSize: '14px', color: '#333' }}>👋 {user.name || user.email}</span>
+            <button onClick={logout} style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>Logout</button>
+        </div>}
       </nav>
     </header>
   );
@@ -442,7 +437,7 @@ function AppContent() {
 
   if (viewingDemo) {
     return (
-      <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
+      <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <DemoViewer onExit={() => setViewingDemo(false)} />
         <Footer />
       </div>
@@ -453,6 +448,7 @@ function AppContent() {
     <Router>
       <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {user && <Header user={user} logout={logout} />}
+        
         <AuthModal 
           isOpen={showAuth && !user} 
           onClose={() => {}} 
@@ -462,6 +458,7 @@ function AppContent() {
           error={authError} 
           isLoading={isLoading} 
         />
+        
         <div style={{ flex: 1 }}>
           {user && (
             <Routes>
@@ -471,7 +468,8 @@ function AppContent() {
             </Routes>
           )}
         </div>
-        <Footer />
+        
+        {user && <Footer />}
       </div>
     </Router>
   );
