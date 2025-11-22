@@ -403,25 +403,94 @@ function Footer() {
 
 function Header({ user, logout }) {
   // --- UPDATED VIDEO STYLE: 250px ---
-  const videoStyle = { width: '250px', height: '250px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }; 
-  
+  const videoStyle = {
+    width: '250px',
+    height: '250px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.1)', // Completed assumption
+  };
+
   return (
-    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 30px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
+    <header
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '15px 30px',
+        backgroundColor: '#f8f9fa', // Completed assumption
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         {/* VIDEO TAG - Apply class for CSS check */}
-        <video src={janusLogoVideo} autoPlay loop muted playsInline className="janus-logo-video" style={videoStyle} />
+        <video
+          src={janusLogoVideo}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="janus-logo-video"
+          style={videoStyle}
+        />
         <div>
-          <h1 style={{ margin: 0, fontSize: '26px', color: '#333', lineHeight: '1.1' }}>Janus Forge Nexus</h1>
-          <p style={{ margin: '6px 0 0 0', fontSize: '15px', color: '#666', fontStyle: 'italic', letterSpacing: '0.5px' }}>Thesis. Antithesis. Humanity.</p>
+          <h1 style={{ margin: 0, fontSize: '26px', color: '#333', lineHeight: '1.1' }}>
+            Janus Forge Nexus
+          </h1>
+          <p
+            style={{
+              margin: '6px 0 0 0',
+              fontSize: '15px',
+              color: '#666',
+              fontStyle: 'italic',
+              letterSpacing: '0.5px',
+            }}
+          >
+            {/* Add subtitle text here if missing */}
+            Forging the future of AI collaboration
+          </p>
         </div>
       </div>
       <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        <NavLink to="/" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600', fontSize: '16px' })}>Dashboard</NavLink>
-        <NavLink to="/history" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600', fontSize: '16px' })}>History</NavLink>
-        {user && <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <span style={{ fontSize: '14px', color: '#333' }}>👋 {user.name || user.email}</span>
-            <button onClick={logout} style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>Logout</button>
-        </div>}
+        <NavLink
+          to="/"
+          style={({ isActive }) => ({
+            textDecoration: 'none',
+            color: isActive ? '#007bff' : '#666',
+            fontWeight: isActive ? 'bold' : 'normal', // Completed assumption
+          })}
+        >
+          Home
+        </NavLink>
+        <NavLink
+          to="/history"
+          style={({ isActive }) => ({
+            textDecoration: 'none',
+            color: isActive ? '#007bff' : '#666',
+            fontWeight: isActive ? 'bold' : 'normal', // Completed assumption
+          })}
+        >
+          History
+        </NavLink>
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <span style={{ fontSize: '14px', color: '#333' }}>
+              👋 {user.name || user.email}
+            </span>
+            <button
+              onClick={logout}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        )}
       </nav>
     </header>
   );
