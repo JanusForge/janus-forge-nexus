@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; 
 import { BrowserRouter as Router, Route, Routes, NavLink, useParams } from 'react-router-dom';
 import './App.css';
 
@@ -59,7 +59,6 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' };
   const btnStyle = { width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' };
-  
   // LOGO SIZE IN MODAL: 250px
   const videoStyle = { width: '250px', height: '250px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' }; 
 
