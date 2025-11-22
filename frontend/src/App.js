@@ -404,13 +404,13 @@ function Footer() {
 }
 
 function Header({ user, logout }) {
-  // --- UPDATED VIDEO STYLE: 250px ---
+  // --- FINAL VIDEO STYLE: 250px ---
   const videoStyle = { width: '250px', height: '250px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }; 
   
   return (
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 30px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        {/* VIDEO TAG - Apply class for CSS check */}
+        {/* VIDEO TAG */}
         <video src={janusLogoVideo} autoPlay loop muted playsInline className="janus-logo-video" style={videoStyle} />
         <div>
           <h1 style={{ margin: 0, fontSize: '26px', color: '#333', lineHeight: '1.1' }}>Janus Forge Nexus</h1>
@@ -475,7 +475,7 @@ function AppContent() {
         {user && <Footer />}
       </div>
     </Router>
-  );
-}
+         );
+                      }
 
 export default function App() { return <AuthProvider><AppContent /></AuthProvider>; }
