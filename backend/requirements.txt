@@ -1,11 +1,1 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-python-multipart==0.0.6
-openai==0.28.1
-anthropic==0.7.4
-google-generativeai==0.3.2
-requests==2.31.0
-python-dotenv==1.0.0
-python-dateutil==2.8.2
-httpx==0.24.0
+fastapi==0.109.0uvicorn==0.27.0pydantic==2.6.0requests==2.31.0python-dotenv==1.0.1sqlalchemy==2.0.25psycopg2-binary==2.9.9passlib[bcrypt]==1.7.4python-jose[cryptography]==3.3.0python-multipart==0.0.6google-generativeai>=0.8.5openai>=1.10.0anthropic>=0.18.0
