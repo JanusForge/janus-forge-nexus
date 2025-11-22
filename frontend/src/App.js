@@ -56,13 +56,17 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' };
   const btnStyle = { width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' };
+  const videoStyle = { width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' };
 
   return (
     <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '400px', width: '90%' }}>
-        <h2 style={{ textAlign: 'center', color: '#333' }}>{isLoginMode ? 'Welcome Back' : 'Join Janus Forge'}</h2>
+      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+        {/* VIDEO LOGO IN MODAL */}
+        <video src="/janus-logo.mp4" autoPlay loop muted playsInline style={videoStyle} />
+        
+        <h2 style={{ textAlign: 'center', color: '#333', marginTop: 0 }}>{isLoginMode ? 'Welcome Back' : 'Join Janus Forge'}</h2>
         {error && <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', marginBottom: '10px', borderRadius: '4px' }}>{error}</div>}
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
           {!isLoginMode && <input type="text" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={inputStyle} required />}
           <input type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={inputStyle} required />
           <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ ...inputStyle, marginBottom: '20px' }} required />
@@ -314,14 +318,8 @@ function Dashboard({ onUpgradePrompt }) {
     } catch { setStatus('Error.'); }
   };
   
-  const handleExport = () => {
-      const content = messages.map(m => `[${m.role === 'user' ? 'You' : m.ai_name}]: ${m.content}`).join('\n\n');
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `janus-session-${sessionId}.txt`;
-      a.click();
+  const handlePrint = () => {
+      window.print();
   };
 
   return (
@@ -338,11 +336,11 @@ function Dashboard({ onUpgradePrompt }) {
              <span style={{ padding: '5px 10px', backgroundColor: TIERS[usage.currentTier].color, color: 'white', borderRadius: '4px' }}>{TIERS[usage.currentTier].name} Tier</span>
              {!sessionId && <button onClick={handleNewSession} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Start New Debate</button>}
           </div>
-          {sessionId && <button onClick={handleExport} style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 Save Transcript</button>}
+          {sessionId && <button onClick={handlePrint} style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🖨️ Save / Print PDF</button>}
         </div>
       </div>
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      <div className="print-area" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         {messages.map((msg, idx) => {
           const isUser = msg.role === 'user';
           const aiConfig = !isUser && msg.ai_name ? AI_MODELS[msg.ai_name] : null;
@@ -372,9 +370,17 @@ function Dashboard({ onUpgradePrompt }) {
 }
 
 function Header({ user, logout }) {
+  const videoStyle = { width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' };
   return (
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>Janus Forge Nexus</h1></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* VIDEO LOGO */}
+        <video src="/janus-logo.mp4" autoPlay loop muted playsInline style={videoStyle} />
+        <div>
+          <h1 style={{ margin: 0, fontSize: '20px', color: '#333', lineHeight: '1' }}>Janus Forge Nexus</h1>
+          <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#666', fontStyle: 'italic' }}>Thesis. Antithesis. Humanity.</p>
+        </div>
+      </div>
       <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         <NavLink to="/" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600' })}>Dashboard</NavLink>
         <NavLink to="/history" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600' })}>History</NavLink>
@@ -399,22 +405,12 @@ function AppContent() {
     <Router>
       <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
         {user && <Header user={user} logout={logout} />}
-        <AuthModal 
-          isOpen={showAuth && !user} 
-          onClose={() => {}} 
-          onLogin={login} 
-          onSignup={signup} 
-          onViewDemo={handleViewDemo} 
-          error={authError} 
-          isLoading={isLoading} 
-        />
-        {user && (
-          <Routes>
+        <AuthModal isOpen={showAuth && !user} onClose={() => {}} onLogin={login} onSignup={signup} onViewDemo={handleViewDemo} error={authError} isLoading={isLoading} />
+        {user && <Routes>
             <Route path="/" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
             <Route path="/session/:sessionId" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
             <Route path="/history" element={<HistoryPage />} />
-          </Routes>
-        )}
+        </Routes>}
       </div>
     </Router>
   );
