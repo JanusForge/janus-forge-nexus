@@ -1,0 +1,7 @@
+{
+  "extends": ["react-app"],
+  "rules": {
+    "react/jsx-closing-tag-location": "error",
+    "react/jsx-closing-bracket-location": "error"
+  }
+}

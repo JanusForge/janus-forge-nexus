@@ -1,427 +1,348 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import os
-import requests
 import uvicorn
-from datetime import datetime
+import requests
+import json
+from datetime import datetime, timedelta
+from sqlalchemy import create_engine, Column, Integer, String, JSON, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from passlib.context import CryptContext
+from jose import JWTError, jwt
+from dotenv import load_dotenv 
 
-# Try to import optional dependencies
+# --- LOAD ENVIRONMENT VARIABLES ---
+load_dotenv()
+
+# --- OPTIONAL IMPORTS (Graceful degradation) ---
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
-    print("⚠️  google-generativeai not available")
+    print("⚠️ google-generativeai not installed")
 
 try:
     from openai import OpenAI
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
-    print("⚠️  openai not available")
+    print("⚠️ openai not installed")
 
 try:
     from anthropic import Anthropic
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
-    print("⚠️  anthropic not available")
+    print("⚠️ anthropic not installed")
 
-# Initialize FastAPI app
-app = FastAPI(title="Janus Forge Nexus API", version="1.0.0")
+# --- SECURITY CONFIGURATION ---
+SECRET_KEY = os.getenv("SECRET_KEY", "janus_forge_super_secret_key_2025")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
-# CORS middleware
+# --- API KEYS ---
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
+GROK_API_KEY = os.getenv('GROK_API_KEY')
+
+# --- GEMINI SETUP & DIAGNOSTICS ---
+valid_gemini_models = []
+if GEMINI_AVAILABLE and GEMINI_API_KEY:
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        # List available models to debug 404 errors
+        print("🔍 Checking available Gemini models...")
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                # Clean model name (remove 'models/' prefix if present)
+                m_name = m.name.replace('models/', '')
+                valid_gemini_models.append(m_name)
+        print(f"✅ Valid Gemini Models Found: {valid_gemini_models}")
+    except Exception as e:
+        print(f"⚠️ Gemini Config Error: {e}")
+
+# --- SMART DATABASE SETUP ---
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    print(f"🗄️ Connecting to Cloud Database: {DATABASE_URL.split('@')[1]}")
+    engine = create_engine(DATABASE_URL)
+else:
+    print("🗄️ Using Local SQLite Database")
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./janus_forge.db"
+    engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# --- MODELS ---
+class UserDB(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    full_name = Column(String)
+    tier = Column(String, default="free")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class SessionDB(Base):
+    __tablename__ = "sessions"
+    session_id = Column(String, primary_key=True, index=True)
+    user_id = Column(Integer)
+    messages = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+Base.metadata.create_all(bind=engine)
+
+# --- AUTH UTILS ---
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+def verify_password(plain, hashed): return pwd_context.verify(plain, hashed)
+def get_hash(password): return pwd_context.hash(password)
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def get_db():
+    db = SessionLocal()
+    try: yield db
+    finally: db.close()
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None: raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = db.query(UserDB).filter(UserDB.email == email).first()
+    if user is None: raise credentials_exception
+    return user
+
+# --- AI CLIENT INITIALIZATION ---
+openai_client = OpenAI(api_key=OPENAI_API_KEY) if (OPENAI_AVAILABLE and OPENAI_API_KEY) else None
+anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if (ANTHROPIC_AVAILABLE and ANTHROPIC_API_KEY) else None
+
+# --- AI CALL FUNCTIONS ---
+def call_gemini_api(prompt):
+    if not GEMINI_AVAILABLE or not GEMINI_API_KEY: return "⚠️ Gemini unavailable (Key/Lib missing)"
+    
+    # Priority List: Validated models -> Flash -> Pro -> Legacy
+    models_to_try = []
+    
+    # 1. Prefer models we confirmed exist on startup
+    if valid_gemini_models:
+        # Prefer flash, then pro
+        flash_models = [m for m in valid_gemini_models if 'flash' in m]
+        pro_models = [m for m in valid_gemini_models if 'pro' in m]
+        models_to_try.extend(flash_models)
+        models_to_try.extend(pro_models)
+        
+    # 2. Fallbacks if auto-discovery failed
+    fallback_models = [
+        'gemini-1.5-flash-latest', 
+        'gemini-1.5-flash-001',
+        'gemini-1.5-pro-latest',
+        'gemini-1.5-pro-001',
+        'gemini-pro'
+    ]
+    for m in fallback_models:
+        if m not in models_to_try:
+            models_to_try.append(m)
+    
+    errors = []
+    
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            return model.generate_content(prompt).text
+        except Exception as e:
+            errors.append(f"{model_name}: {str(e)}")
+            continue
+            
+    return f"❌ Gemini Error: All models failed. Details: {'; '.join(errors[:3])}..."
+
+def call_deepseek_api(prompt):
+    if not DEEPSEEK_API_KEY: return "⚠️ DeepSeek Key missing"
+    try:
+        headers = {'Authorization': f'Bearer {DEEPSEEK_API_KEY}', 'Content-Type': 'application/json'}
+        data = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "stream": False}
+        res = requests.post('https://api.deepseek.com/chat/completions', headers=headers, json=data, timeout=30)
+        if res.status_code == 200: return res.json()['choices'][0]['message']['content']
+        return f"❌ DeepSeek Error: {res.status_code} - {res.text}"
+    except Exception as e: return f"❌ DeepSeek Error: {str(e)}"
+
+def call_grok_api(prompt):
+    if not GROK_API_KEY: return "⚠️ Grok Key missing"
+    try:
+        headers = {'Authorization': f'Bearer {GROK_API_KEY}', 'Content-Type': 'application/json'}
+        # Updated endpoint for xAI
+        data = {"model": "grok-beta", "messages": [{"role": "user", "content": prompt}], "stream": False}
+        res = requests.post('https://api.x.ai/v1/chat/completions', headers=headers, json=data, timeout=30)
+        if res.status_code == 200: return res.json()['choices'][0]['message']['content']
+        return "🦄 Grok: API endpoint unreachable."
+    except:
+        return "🦄 Grok: API endpoint unreachable."
+
+def call_openai_api(prompt):
+    if not openai_client: return "⚠️ OpenAI unavailable"
+    try:
+        res = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}]
+        )
+        return res.choices[0].message.content
+    except Exception as e: return f"❌ OpenAI Error: {str(e)}"
+
+def build_context_prompt(current_prompt, previous_messages, ai_name):
+    history = "\n".join([
+        f"{'👤 User' if m['role'] == 'user' else '🤖 ' + (m.get('ai_name') or 'AI')}: {m['content']}"
+        for m in previous_messages[-6:]
+    ])
+    return f"""
+    You are participating in a debate on Janus Forge.
+    HISTORY:
+    {history}
+    
+    CURRENT PROMPT: {current_prompt}
+    
+    Respond as {ai_name}. Be insightful and concise.
+    """
+
+# --- FASTAPI APP ---
+app = FastAPI(title="Janus Forge Nexus")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- CONFIGURATION ---
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY') 
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
-GROK_API_KEY = os.getenv('GROK_API_KEY')
+# --- INPUT MODELS ---
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    full_name: str
 
-# Initialize API clients
-openai_client = None
-anthropic_client = None
-
-if OPENAI_AVAILABLE and OPENAI_API_KEY:
-    openai_client = OpenAI(api_key=OPENAI_API_KEY)
-
-if ANTHROPIC_AVAILABLE and ANTHROPIC_API_KEY:
-    anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
-
-if GEMINI_AVAILABLE and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-
-# --- SESSION STORAGE ---
-session_storage = {}
-
-# --- PYDANTIC MODELS ---
 class BroadcastRequest(BaseModel):
     session_id: str
     ai_participants: List[str]
     moderator_prompt: str
-    tier: str = "free"
-    user_id: Optional[str] = None
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    user_tier: str
+    user_name: str
 
 class Message(BaseModel):
     role: str
     content: str
     timestamp: str
     ai_name: Optional[str] = None
-    user_id: Optional[str] = None
 
 class BroadcastResponse(BaseModel):
     session_id: str
     responses: List[Message]
     timestamp: str
-    message_count: int
 
-class SessionResponse(BaseModel):
-    session_id: str
-    messages: List[Message]
-    created_at: str
-    message_count: int
-    user_id: Optional[str] = None
+# --- ROUTES ---
+@app.post("/api/auth/signup", response_model=Token)
+def signup(user: UserCreate, db: Session = Depends(get_db)):
+    if db.query(UserDB).filter(UserDB.email == user.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    new_user = UserDB(email=user.email, hashed_password=get_hash(user.password), full_name=user.full_name)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"access_token": create_access_token({"sub": new_user.email}), "token_type": "bearer", "user_tier": new_user.tier, "user_name": new_user.full_name}
 
-# --- API CALL FUNCTIONS ---
-def call_openai_api(prompt: str) -> str:
-    """Call OpenAI GPT API"""
-    if not openai_client:
-        return "🔧 OpenAI is experiencing technical issues. Please try again later."
-    
-    try:
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1000
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        print(f"❌ OpenAI API error: {str(e)}")
-        return "🔧 OpenAI is experiencing technical issues. Please try again later."
+@app.post("/api/auth/login", response_model=Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(UserDB).filter(UserDB.email == form_data.username).first()
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect credentials")
+    return {"access_token": create_access_token({"sub": user.email}), "token_type": "bearer", "user_tier": user.tier, "user_name": user.full_name}
 
-def call_gemini_api(prompt: str) -> str:
-    """Call Google Gemini API"""
-    if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
-        return "🔧 Gemini is experiencing technical issues. Please try again later."
-    
-    try:
-        model = genai.GenerativeModel('gemini-pro')
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        print(f"❌ Gemini API error: {str(e)}")
-        return "🔧 Gemini is experiencing technical issues. Please try again later."
-
-def call_anthropic_api(prompt: str) -> str:
-    """Call Anthropic Claude API"""
-    if not anthropic_client:
-        return "🔧 Claude is experiencing technical issues. Please try again later."
-    
-    try:
-        response = anthropic_client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=1000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.content[0].text
-    except Exception as e:
-        print(f"❌ Anthropic API error: {str(e)}")
-        return "🔧 Claude is experiencing technical issues. Please try again later."
-
-def call_deepseek_api(prompt: str) -> str:
-    """Call DeepSeek API via REST"""
-    if not DEEPSEEK_API_KEY:
-        return "🔧 DeepSeek is experiencing technical issues. Please try again later."
-    
-    try:
-        headers = {
-            'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-            'Content-Type': 'application/json'
-        }
-        data = {
-            "model": "deepseek-chat",
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1000,
-            "stream": False
-        }
-        response = requests.post(
-            'https://api.deepseek.com/chat/completions',
-            headers=headers,
-            json=data,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            response_data = response.json()
-            return response_data['choices'][0]['message']['content']
-        else:
-            print(f"❌ DeepSeek API error: {response.status_code} - {response.text}")
-            return "🔧 DeepSeek is experiencing technical issues. Please try again later."
-            
-    except Exception as e:
-        print(f"❌ DeepSeek error: {str(e)}")
-        return "🔧 DeepSeek is experiencing technical issues. Please try again later."
-
-def call_grok_api(prompt: str) -> str:
-    """Call SuperGrok API"""
-    if not GROK_API_KEY:
-        return "🔧 Grok is experiencing technical issues. Please try again later."
-    
-    try:
-        # SuperGrok API - adjust endpoint based on actual API docs
-        headers = {
-            'Authorization': f'Bearer {GROK_API_KEY}',
-            'Content-Type': 'application/json'
-        }
-        data = {
-            "model": "grok",  # Adjust model name if needed
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1000,
-            "stream": False
-        }
-        
-        # Update this URL to match SuperGrok API endpoint
-        response = requests.post(
-            'https://api.supergrok.ai/v1/chat/completions',  # Adjust if needed
-            headers=headers,
-            json=data,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            response_data = response.json()
-            # Adjust based on SuperGrok API response structure
-            if 'choices' in response_data and len(response_data['choices']) > 0:
-                return response_data['choices'][0]['message']['content']
-            else:
-                return "🔧 Grok is experiencing technical issues. Please try again later."
-        else:
-            print(f"❌ SuperGrok API error: {response.status_code} - {response.text}")
-            return "🔧 Grok is experiencing technical issues. Please try again later."
-            
-    except Exception as e:
-        print(f"❌ SuperGrok error: {str(e)}")
-        return "🔧 Grok is experiencing technical issues. Please try again later."
-
-def build_context_prompt(current_prompt: str, previous_messages: List[Message], ai_name: str) -> str:
-    """Build prompt with conversation context"""
-    if not previous_messages:
-        return current_prompt
-    
-    # Build conversation history
-    conversation_history = "\n\n--- PREVIOUS MESSAGES IN THIS CONVERSATION ---\n"
-    for msg in previous_messages[-6:]:  # Last 6 messages for context
-        if msg.role == 'user':
-            conversation_history += f"👤 Human: {msg.content}\n"
-        else:
-            sender_name = msg.ai_name or 'AI'
-            icons = {'grok': '🦄', 'gemini': '🌀', 'deepseek': '🎯', 'openai': '🤖', 'anthropic': '🧠'}
-            icon = icons.get(sender_name, '🤖')
-            conversation_history += f"{icon} {sender_name}: {msg.content}\n"
-    
-    conversation_history += "--- END OF CONVERSATION HISTORY ---\n\n"
-    
-    # Enhanced prompt for dialectic conversation
-    enhanced_prompt = f"""You are participating in a multi-AI dialectic conversation on JanusForge.ai. 
-
-{conversation_history}
-
-Current human prompt: "{current_prompt}"
-
-IMPORTANT: You can see the previous messages in this conversation. Please engage with the discussion by:
-- Acknowledging other AI perspectives when relevant
-- Building upon, challenging, or synthesizing previous responses  
-- Providing your unique perspective while considering the conversation context
-- Creating a meaningful dialogue with both the human and other AIs
-
-Your response:"""
-    
-    return enhanced_prompt
-
-# --- API ROUTES ---
 @app.post("/api/v1/broadcast", response_model=BroadcastResponse)
-async def broadcast_to_ai(request: BroadcastRequest):
-    try:
-        session_id = request.session_id
-        ai_participants = request.ai_participants
-        moderator_prompt = request.moderator_prompt
-        tier = request.tier
-        user_id = request.user_id
-        
-        print(f"🎯 Broadcasting to {ai_participants} in session: {session_id}")
-        
-        # Initialize session if doesn't exist
-        if session_id not in session_storage:
-            session_storage[session_id] = {
-                'created_at': datetime.utcnow().isoformat(),
-                'messages': [],
-                'user_id': user_id,
-                'tier': tier
+async def broadcast(req: BroadcastRequest, user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    print(f"🎤 {user.email} calling Council: {req.ai_participants}")
+    
+    # 1. Get or Create Session
+    db_session = db.query(SessionDB).filter(SessionDB.session_id == req.session_id).first()
+    if not db_session:
+        db_session = SessionDB(session_id=req.session_id, user_id=user.id, messages=[])
+        db.add(db_session)
+    
+    # 2. Prepare Messages (Careful with SQLite JSON list mutation)
+    current_messages = list(db_session.messages) if db_session.messages else []
+    
+    # Add User Message
+    current_messages.append({
+        "role": "user", 
+        "content": req.moderator_prompt, 
+        "timestamp": datetime.utcnow().isoformat(),
+        "ai_name": None
+    })
+
+    # 3. THE ORCHESTRATION LOOP
+    new_responses = []
+    for ai in req.ai_participants:
+        try:
+            # Generate Prompt
+            final_prompt = build_context_prompt(req.moderator_prompt, current_messages, ai)
+            
+            # Call Specific AI
+            response_text = ""
+            if ai == 'gemini': response_text = call_gemini_api(final_prompt)
+            elif ai == 'deepseek': response_text = call_deepseek_api(final_prompt)
+            elif ai == 'grok': response_text = call_grok_api(final_prompt)
+            elif ai == 'openai': response_text = call_openai_api(final_prompt)
+            elif ai == 'anthropic': 
+                response_text = "🧠 Claude is thinking..." 
+            
+            # Append Result
+            ai_msg = {
+                "role": "assistant",
+                "content": response_text,
+                "timestamp": datetime.utcnow().isoformat(),
+                "ai_name": ai
             }
-        
-        # Add user message to session history
-        user_message = Message(
-            role='user',
-            content=moderator_prompt,
-            timestamp=datetime.utcnow().isoformat(),
-            user_id=user_id
-        )
-        session_storage[session_id]['messages'].append(user_message)
-        
-        # Get previous messages for context (excluding current user message)
-        previous_messages = session_storage[session_id]['messages'][:-1]
-        
-        responses = []
-        
-        for ai_name in ai_participants:
-            try:
-                # Build context-aware prompt for all AIs
-                context_prompt = build_context_prompt(moderator_prompt, previous_messages, ai_name)
-                
-                if ai_name == 'openai':
-                    response_content = call_openai_api(context_prompt)
-                elif ai_name == 'gemini':
-                    response_content = call_gemini_api(context_prompt)
-                elif ai_name == 'deepseek':
-                    response_content = call_deepseek_api(context_prompt)
-                elif ai_name == 'grok':
-                    response_content = call_grok_api(context_prompt)
-                elif ai_name == 'anthropic':
-                    response_content = call_anthropic_api(context_prompt)
-                else:
-                    continue
-                
-                ai_message = Message(
-                    ai_name=ai_name,
-                    content=response_content,
-                    timestamp=datetime.utcnow().isoformat(),
-                    role='assistant'
-                )
-                
-                responses.append(ai_message)
-                # Add AI response to session history
-                session_storage[session_id]['messages'].append(ai_message)
-                
-            except Exception as e:
-                print(f"❌ Error calling {ai_name}: {str(e)}")
-                error_message = Message(
-                    ai_name=ai_name,
-                    content=f"🔧 {ai_name} is experiencing technical issues. Please try again later.",
-                    timestamp=datetime.utcnow().isoformat(),
-                    role='assistant'
-                )
-                responses.append(error_message)
-                session_storage[session_id]['messages'].append(error_message)
-                continue
-        
-        return BroadcastResponse(
-            session_id=session_id,
-            responses=responses,
-            timestamp=datetime.utcnow().isoformat(),
-            message_count=len(session_storage[session_id]['messages'])
-        )
-        
-    except Exception as e:
-        print(f"❌ Broadcast error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+            new_responses.append(ai_msg)
+            current_messages.append(ai_msg)
+            
+        except Exception as e:
+            print(f"❌ Error invoking {ai}: {e}")
 
-@app.get("/api/v1/sessions")
-async def get_sessions():
-    """Get all sessions"""
-    sessions = []
-    for session_id, session_data in session_storage.items():
-        sessions.append({
-            'session_id': session_id,
-            'created_at': session_data['created_at'],
-            'message_count': len(session_data['messages']),
-            'last_updated': session_data['messages'][-1].timestamp if session_data['messages'] else session_data['created_at'],
-            'user_id': session_data.get('user_id')
-        })
-    
-    return {'sessions': sessions}
+    # 4. Save to DB
+    db_session.messages = current_messages
+    db.commit() # Commit changes to persistence
 
-@app.get("/api/v1/session/{session_id}", response_model=SessionResponse)
-async def get_session(session_id: str):
-    """Get full session with message history"""
-    if session_id in session_storage:
-        return SessionResponse(
-            session_id=session_id,
-            messages=session_storage[session_id]['messages'],
-            created_at=session_storage[session_id]['created_at'],
-            message_count=len(session_storage[session_id]['messages']),
-            user_id=session_storage[session_id].get('user_id')
-        )
-    else:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-@app.delete("/api/v1/session/{session_id}")
-async def delete_session(session_id: str):
-    """Delete a session"""
-    if session_id in session_storage:
-        del session_storage[session_id]
-        return {'message': f'Session {session_id} deleted'}
-    else:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-@app.get("/api/v1/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
-        'active_sessions': len(session_storage)
-    }
-
-@app.get("/api/v1/debug/apis")
-async def debug_apis():
-    """Debug endpoint to check API connectivity"""
-    test_prompt = "Say 'API test successful' in a creative way."
-    
-    status = {
-        'openai': 'testing...',
-        'gemini': 'testing...', 
-        'anthropic': 'testing...',
-        'deepseek': 'testing...',
-        'grok': 'testing...'
-    }
-    
-    # Test each API
-    try:
-        status['openai'] = call_openai_api(test_prompt)
-    except Exception as e:
-        status['openai'] = f'error: {str(e)}'
-    
-    try:
-        status['gemini'] = call_gemini_api(test_prompt)
-    except Exception as e:
-        status['gemini'] = f'error: {str(e)}'
-    
-    try:
-        status['anthropic'] = call_anthropic_api(test_prompt)
-    except Exception as e:
-        status['anthropic'] = f'error: {str(e)}'
-    
-    try:
-        status['deepseek'] = call_deepseek_api(test_prompt)
-    except Exception as e:
-        status['deepseek'] = f'error: {str(e)}'
-    
-    try:
-        status['grok'] = call_grok_api(test_prompt)
-    except Exception as e:
-        status['grok'] = f'error: {str(e)}'
-    
-    return status
+    # 5. Return ONLY new responses to frontend (it already has the user message)
+    return BroadcastResponse(
+        session_id=req.session_id,
+        responses=[Message(**m) for m in new_responses],
+        timestamp=datetime.utcnow().isoformat()
+    )
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
