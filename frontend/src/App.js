@@ -59,7 +59,7 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' };
   const btnStyle = { width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' };
-  const videoStyle = { width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' };
+  const videoStyle = { width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' }; // Increased size
 
   return (
     <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -381,11 +381,34 @@ function Dashboard({ onUpgradePrompt }) {
   );
 }
 
+function Footer() {
+    const footerStyle = {
+        textAlign: 'center',
+        padding: '20px',
+        backgroundColor: '#fff',
+        borderTop: '1px solid #ddd',
+        color: '#666',
+        fontSize: '14px',
+        marginTop: '40px'
+    };
+
+    return (
+        <footer style={footerStyle}>
+            <p>
+                © {new Date().getFullYear()} Janus Forge Accelerators, LLC. All rights reserved.
+            </p>
+            <p style={{ fontSize: '12px', marginTop: '5px' }}>
+                A registered Kentucky Limited Liability Company.
+            </p>
+        </footer>
+    );
+}
+
 function Header({ user, logout }) {
-  const videoStyle = { width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' };
+  const videoStyle = { width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover' }; // Larger logo
   return (
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
         <video 
           src={janusLogoVideo} 
           autoPlay 
@@ -395,8 +418,8 @@ function Header({ user, logout }) {
           style={videoStyle} 
         />
         <div>
-          <h1 style={{ margin: 0, fontSize: '20px', color: '#333', lineHeight: '1' }}>Janus Forge Nexus</h1>
-          <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#666', fontStyle: 'italic' }}>Thesis. Antithesis. Humanity.</p>
+          <h1 style={{ margin: 0, fontSize: '24px', color: '#333', lineHeight: '1' }}>Janus Forge Nexus</h1>
+          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#666', fontStyle: 'italic' }}>Thesis. Antithesis. Humanity.</p>
         </div>
       </div>
       <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -421,13 +444,14 @@ function AppContent() {
     return (
       <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
         <DemoViewer onExit={() => setViewingDemo(false)} />
+        <Footer />
       </div>
     );
   }
 
   return (
     <Router>
-      <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
+      <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {user && <Header user={user} logout={logout} />}
         <AuthModal 
           isOpen={showAuth && !user} 
@@ -438,13 +462,16 @@ function AppContent() {
           error={authError} 
           isLoading={isLoading} 
         />
-        {user && (
-          <Routes>
-            <Route path="/" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
-            <Route path="/session/:sessionId" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
-            <Route path="/history" element={<HistoryPage />} />
-          </Routes>
-        )}
+        <div style={{ flex: 1 }}>
+          {user && (
+            <Routes>
+              <Route path="/" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
+              <Route path="/session/:sessionId" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
+              <Route path="/history" element={<HistoryPage />} />
+            </Routes>
+          )}
+        </div>
+        <Footer />
       </div>
     </Router>
   );
