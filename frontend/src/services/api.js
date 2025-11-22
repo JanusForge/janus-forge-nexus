@@ -1,7 +1,9 @@
 import axios from 'axios';
 
-// In development, this points to localhost. In production, your Render URL.
-const API_URL = "http://localhost:8000"; 
+// SMART SWITCHER:
+// If we are on Render, use the environment variable.
+// If we are local, fallback to localhost.
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000"; 
 
 const api = axios.create({
   baseURL: API_URL,
@@ -24,12 +26,20 @@ api.interceptors.request.use((config) => {
 
 export const authService = {
   login: async (username, password) => {
-    const formData = new FormData();
-    formData.append('username', username);
-    formData.append('password', password);
-    return api.post('/api/auth/login', formData);
+    // FIX: Use URLSearchParams for standard OAuth2 form encoding
+    // and explicitly override the Content-Type header
+    const params = new URLSearchParams();
+    params.append('username', username); // Backend expects 'username', we map email to it
+    params.append('password', password);
+    
+    return api.post('/api/auth/login', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
   },
   signup: async (email, password, name) => {
+    // Signup expects JSON, so we use the default settings
     return api.post('/api/auth/signup', { 
       email, 
       password, 
