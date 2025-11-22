@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'; 
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Route, Routes, NavLink, useParams } from 'react-router-dom';
 import './App.css';
 
@@ -59,12 +59,11 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' };
   const btnStyle = { width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' };
-  // LOGO SIZE IN MODAL: 250px
-  const videoStyle = { width: '250px', height: '250px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' }; 
+  const videoStyle = { width: '250px', height: '250px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px', boxShadow: '0 8px 16px rgba(0,0,0,0.2)' };
 
   return (
     <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '500px', width: '90%', textAlign: 'center' }}>
+      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '450px', width: '90%', textAlign: 'center' }}>
         
         {/* VIDEO LOGO */}
         <video src={janusLogoVideo} autoPlay loop muted playsInline style={videoStyle} />
@@ -403,15 +402,14 @@ function Footer() {
 }
 
 function Header({ user, logout }) {
-  // --- FINAL VIDEO STYLE: 250px ---
-  const videoStyle = { width: '250px', height: '250px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }; 
+  // --- UPDATED VIDEO STYLE: 250px ---
+  const videoStyle = { width: '250px', height: '250px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }; 
   
   return (
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 30px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        {/* VIDEO TAG */}
+        {/* VIDEO TAG - Apply class for CSS check */}
         <video src={janusLogoVideo} autoPlay loop muted playsInline className="janus-logo-video" style={videoStyle} />
-        <style>{`.janus-logo-video { width: 250px !important; height: 250px !important; }`}</style>
         <div>
           <h1 style={{ margin: 0, fontSize: '26px', color: '#333', lineHeight: '1.1' }}>Janus Forge Nexus</h1>
           <p style={{ margin: '6px 0 0 0', fontSize: '15px', color: '#666', fontStyle: 'italic', letterSpacing: '0.5px' }}>Thesis. Antithesis. Humanity.</p>
@@ -472,7 +470,7 @@ function AppContent() {
           )}
         </div>
         
-        {user && <Footer />}
+        <Footer />
       </div>
     </Router>
   );
