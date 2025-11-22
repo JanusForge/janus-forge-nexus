@@ -59,42 +59,28 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' };
   const btnStyle = { width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' };
-  
-  // MODAL VIDEO STYLE (Larger)
-  const videoStyle = { 
-      width: '150px', 
-      height: '150px', 
-      borderRadius: '50%', 
-      objectFit: 'cover', 
-      marginBottom: '20px',
-      boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
-  };
+  const videoStyle = { width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px' };
 
   return (
     <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '16px', maxWidth: '450px', width: '90%', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-        <video 
-          src={janusLogoVideo} 
-          autoPlay 
-          loop 
-          muted 
-          playsInline 
-          style={videoStyle} 
-        />
+      <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
         
-        <h2 style={{ textAlign: 'center', color: '#333', marginTop: 0, fontSize: '24px' }}>{isLoginMode ? 'Welcome Back' : 'Join Janus Forge'}</h2>
+        {/* SINGLE LINE VIDEO TAG TO FIX LINTER */}
+        <video src={janusLogoVideo} autoPlay loop muted playsInline style={videoStyle} />
+        
+        <h2 style={{ textAlign: 'center', color: '#333', marginTop: 0 }}>{isLoginMode ? 'Welcome Back' : 'Join Janus Forge'}</h2>
         {error && <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', marginBottom: '10px', borderRadius: '4px' }}>{error}</div>}
         
-        <form onSubmit={handleSubmit} style={{ textAlign: 'left', marginTop: '20px' }}>
+        <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
           {!isLoginMode && <input type="text" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={inputStyle} required />}
           <input type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={inputStyle} required />
           <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ ...inputStyle, marginBottom: '20px' }} required />
           <button type="submit" disabled={isLoading} style={btnStyle}>{isLoading ? 'Processing...' : (isLoginMode ? 'Sign In' : 'Create Account')}</button>
         </form>
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
           <button onClick={onViewDemo} style={{ width: '100%', padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>👁️ View Live Demo Session</button>
-          <p style={{ textAlign: 'center', fontSize: '14px', cursor: 'pointer', color: '#1976d2', margin: 0 }} onClick={() => setIsLoginMode(!isLoginMode)}>{isLoginMode ? "Need an account? Sign up" : "Have an account? Sign in"}</p>
+          <p style={{ textAlign: 'center', fontSize: '14px', cursor: 'pointer', color: 'blue', margin: 0 }} onClick={() => setIsLoginMode(!isLoginMode)}>{isLoginMode ? "Need an account? Sign up" : "Have an account? Sign in"}</p>
         </div>
 
         {user && <button onClick={onClose} style={{ marginTop: '10px', width: '100%', padding: '8px' }}>Close</button>}
@@ -399,7 +385,7 @@ function Footer() {
     borderTop: '1px solid #eaeaea',
     color: '#888',
     fontSize: '13px',
-    marginTop: 'auto' // Pushes footer to bottom
+    marginTop: 'auto'
   };
 
   return (
@@ -416,20 +402,14 @@ function Footer() {
 }
 
 function Header({ user, logout }) {
-  // --- UPDATED VIDEO STYLE: 150px ---
+  // --- SINGLE LINE VIDEO TAG ---
   const videoStyle = { width: '150px', height: '150px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }; 
   
   return (
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 30px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        <video 
-          src={janusLogoVideo} 
-          autoPlay 
-          loop 
-          muted 
-          playsInline 
-          style={videoStyle} 
-        />
+        {/* Single line to fix linter */}
+        <video src={janusLogoVideo} autoPlay loop muted playsInline style={videoStyle} />
         <div>
           <h1 style={{ margin: 0, fontSize: '26px', color: '#333', lineHeight: '1.1' }}>Janus Forge Nexus</h1>
           <p style={{ margin: '6px 0 0 0', fontSize: '15px', color: '#666', fontStyle: 'italic', letterSpacing: '0.5px' }}>Thesis. Antithesis. Humanity.</p>
