@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Route, Routes, NavLink } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, NavLink, useParams } from 'react-router-dom';
 import './App.css';
 
 // --- IMPORTS ---
@@ -54,16 +54,19 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
     isLoginMode ? onLogin(formData.email, formData.password) : onSignup(formData.email, formData.password, formData.name);
   };
 
+  const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' };
+  const btnStyle = { width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' };
+
   return (
     <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '400px', width: '90%' }}>
         <h2 style={{ textAlign: 'center', color: '#333' }}>{isLoginMode ? 'Welcome Back' : 'Join Janus Forge'}</h2>
         {error && <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', marginBottom: '10px', borderRadius: '4px' }}>{error}</div>}
         <form onSubmit={handleSubmit}>
-          {!isLoginMode && <input type="text" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' }} required />}
-          <input type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ddd' }} required />
-          <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '6px', border: '1px solid #ddd' }} required />
-          <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer' }}>{isLoading ? 'Processing...' : (isLoginMode ? 'Sign In' : 'Create Account')}</button>
+          {!isLoginMode && <input type="text" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={inputStyle} required />}
+          <input type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={inputStyle} required />
+          <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ ...inputStyle, marginBottom: '20px' }} required />
+          <button type="submit" disabled={isLoading} style={btnStyle}>{isLoading ? 'Processing...' : (isLoginMode ? 'Sign In' : 'Create Account')}</button>
         </form>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
           <button onClick={onViewDemo} style={{ width: '100%', padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>👁️ View Live Demo Session</button>
@@ -75,7 +78,30 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
   );
 }
 
-function DailyJanusCard({ onGenerate }) {
+function HistoryPage() {
+  const [sessions, setSessions] = useState([]);
+  
+  useEffect(() => {
+    sessionService.getHistory().then(res => setSessions(res.data)).catch(err => console.error(err));
+  }, []);
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+      <h2>🏛️ Conversation History</h2>
+      {sessions.length === 0 ? <p>No sessions found.</p> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {sessions.map(s => (
+            <div key={s.session_id} style={{ padding: '15px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => window.location.href = `/session/${s.session_id}`}>
+              <div><div style={{ fontWeight: 'bold', color: '#333' }}>{s.snippet}</div><div style={{ fontSize: '12px', color: '#888' }}>{new Date(s.created_at).toLocaleString()} • {s.message_count} messages</div></div><span style={{ fontSize: '20px' }}>➡️</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DailyJanusCard() {
   const [daily, setDaily] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -179,7 +205,7 @@ function DailyJanusCard({ onGenerate }) {
   );
 }
 
-function PromptInput({ onSend, sessionId, isSending, usage, canSendMessage, onUpgradePrompt, user, participants }) {
+function PromptInput({ onSend, sessionId, isSending, usage, canSendMessage, onUpgradePrompt, user, participants = [] }) {
   const [localPrompt, setLocalPrompt] = useState('');
   const inputRef = useRef(null);
   
@@ -191,27 +217,18 @@ function PromptInput({ onSend, sessionId, isSending, usage, canSendMessage, onUp
     }
   };
 
-  // Dynamic placeholder based on who is in the Council
   const councilNames = participants.map(p => AI_MODELS[p]?.name).join(', ');
-  const placeholderText = canSendMessage 
-    ? `Ask the Council (${councilNames})...` 
-    : "Limit reached.";
+  const placeholderText = canSendMessage ? `Ask the Council (${councilNames})...` : "Limit reached.";
+  const textAreaStyle = { width: '100%', minHeight: '80px', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' };
+  const btnStyle = { marginTop: '10px', padding: '10px 20px', backgroundColor: TIERS[usage.currentTier].color, color: 'white', border: 'none', borderRadius: '6px', width: '100%', cursor: 'pointer' };
 
   return (
     <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '10px' }}>
         <span>{user?.name || 'User'} • Messages: {usage.messagesSent}/{TIERS[usage.currentTier].messageLimit}</span>
       </div>
-      <textarea 
-        ref={inputRef} 
-        value={localPrompt} 
-        onChange={(e) => setLocalPrompt(e.target.value)} 
-        onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }} 
-        disabled={isSending || !canSendMessage} 
-        placeholder={placeholderText} 
-        style={{ width: '100%', minHeight: '80px', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }} 
-      />
-      <button onClick={handleSubmit} disabled={!localPrompt.trim() || isSending} style={{ marginTop: '10px', padding: '10px 20px', backgroundColor: TIERS[usage.currentTier].color, color: 'white', border: 'none', borderRadius: '6px', width: '100%', cursor: 'pointer' }}>{isSending ? 'Synthesizing...' : 'Send to Council'}</button>
+      <textarea ref={inputRef} value={localPrompt} onChange={(e) => setLocalPrompt(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }} disabled={isSending || !canSendMessage} placeholder={placeholderText} style={textAreaStyle} />
+      <button onClick={handleSubmit} disabled={!localPrompt.trim() || isSending} style={btnStyle}>{isSending ? 'Synthesizing...' : 'Send to Council'}</button>
     </div>
   );
 }
@@ -252,14 +269,24 @@ function DemoViewer({ onExit }) {
 }
 
 function Dashboard({ onUpgradePrompt }) {
+  const { sessionId: urlSessionId } = useParams();
+  const [status, setStatus] = useState('');
+  const [sessionId, setSessionId] = useState(urlSessionId || '');
+  const [messages, setMessages] = useState([]);
   const { user } = useAuth();
   const { usage, incrementUsage, canCreateSession, canSendMessage } = useUsageTracker(user);
-  const [status, setStatus] = useState('');
-  const [sessionId, setSessionId] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [participants] = useState(TIERS[usage.currentTier].aiModels); // Dynamic based on tier!
+  const participants = TIERS[usage.currentTier].aiModels; 
 
-  // Helper to show who is in the Council
+  useEffect(() => {
+      if (urlSessionId) {
+          setStatus('Loading session...');
+          sessionService.getSession(urlSessionId).then(res => {
+              setMessages(res.data.responses);
+              setStatus('Archive loaded.');
+          }).catch(err => setStatus('Failed to load session.'));
+      }
+  }, [urlSessionId]);
+
   const councilDisplay = participants.map(p => AI_MODELS[p]?.name).join(' & ');
 
   const handleNewSession = async () => {
@@ -272,7 +299,7 @@ function Dashboard({ onUpgradePrompt }) {
       setMessages(response.data.responses || []);
       incrementUsage('sessionsCreated');
       setStatus('Ready.');
-    } catch (err) { console.error(err); setStatus('Failed to start session.'); }
+    } catch { setStatus('Failed.'); }
   };
 
   const handleSend = async (text) => {
@@ -284,23 +311,37 @@ function Dashboard({ onUpgradePrompt }) {
       setMessages(prev => [...prev, ...response.data.responses]);
       incrementUsage('messagesSent', response.data.responses.length);
       setStatus('Synthesis complete.');
-    } catch (err) { console.error(err); setStatus('Error communicating with Council.'); }
+    } catch { setStatus('Error.'); }
+  };
+  
+  const handleExport = () => {
+      const content = messages.map(m => `[${m.role === 'user' ? 'You' : m.ai_name}]: ${m.content}`).join('\n\n');
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `janus-session-${sessionId}.txt`;
+      a.click();
   };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <DailyJanusCard />
+      {!urlSessionId && <DailyJanusCard />}
       <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
         <h2 style={{ margin: '0 0 5px 0' }}>Janus Forge Dashboard</h2>
         <p style={{ margin: '0 0 15px 0', color: '#666', fontSize: '14px' }}>
           <strong>Council in Session:</strong> {councilDisplay}
         </p>
 
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-          <span style={{ padding: '5px 10px', backgroundColor: TIERS[usage.currentTier].color, color: 'white', borderRadius: '4px' }}>{TIERS[usage.currentTier].name} Tier</span>
-          {!sessionId && <button onClick={handleNewSession} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Start New Debate</button>}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+             <span style={{ padding: '5px 10px', backgroundColor: TIERS[usage.currentTier].color, color: 'white', borderRadius: '4px' }}>{TIERS[usage.currentTier].name} Tier</span>
+             {!sessionId && <button onClick={handleNewSession} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Start New Debate</button>}
+          </div>
+          {sessionId && <button onClick={handleExport} style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 Save Transcript</button>}
         </div>
       </div>
+      
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         {messages.map((msg, idx) => {
           const isUser = msg.role === 'user';
@@ -336,6 +377,7 @@ function Header({ user, logout }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>Janus Forge Nexus</h1></div>
       <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
         <NavLink to="/" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600' })}>Dashboard</NavLink>
+        <NavLink to="/history" style={({isActive}) => ({ textDecoration: 'none', color: isActive ? '#007bff' : '#666', fontWeight: '600' })}>History</NavLink>
         {user && <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ fontSize: '14px', color: '#333' }}>👋 {user.name || user.email}</span><button onClick={logout} style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Logout</button></div>}
       </nav>
     </header>
@@ -357,8 +399,22 @@ function AppContent() {
     <Router>
       <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
         {user && <Header user={user} logout={logout} />}
-        <AuthModal isOpen={showAuth && !user} onClose={() => {}} onLogin={login} onSignup={signup} onViewDemo={handleViewDemo} error={authError} isLoading={isLoading} />
-        {user && <Routes><Route path="/" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} /></Routes>}
+        <AuthModal 
+          isOpen={showAuth && !user} 
+          onClose={() => {}} 
+          onLogin={login} 
+          onSignup={signup} 
+          onViewDemo={handleViewDemo} 
+          error={authError} 
+          isLoading={isLoading} 
+        />
+        {user && (
+          <Routes>
+            <Route path="/" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
+            <Route path="/session/:sessionId" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
+            <Route path="/history" element={<HistoryPage />} />
+          </Routes>
+        )}
       </div>
     </Router>
   );

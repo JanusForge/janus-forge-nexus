@@ -7,7 +7,6 @@ import os
 import uvicorn
 import requests
 import json
-import random
 from datetime import datetime, timedelta, date
 from sqlalchemy import create_engine, Column, Integer, String, JSON, DateTime, Date
 from sqlalchemy.ext.declarative import declarative_base
@@ -19,7 +18,7 @@ from dotenv import load_dotenv
 # --- LOAD ENVIRONMENT VARIABLES ---
 load_dotenv()
 
-# --- OPTIONAL IMPORTS (Graceful degradation) ---
+# --- OPTIONAL IMPORTS ---
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
@@ -46,39 +45,31 @@ SECRET_KEY = os.getenv("SECRET_KEY", "janus_forge_super_secret_key_2025")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
-# --- API KEYS (Load from Environment) ---
+# --- API KEYS ---
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
 GROK_API_KEY = os.getenv('GROK_API_KEY')
 
-# --- GEMINI SETUP & DIAGNOSTICS ---
+# --- GEMINI SETUP ---
 valid_gemini_models = []
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        print("🔍 Checking available Gemini models...")
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
-                m_name = m.name.replace('models/', '')
-                valid_gemini_models.append(m_name)
-        print(f"✅ Valid Gemini Models Found: {valid_gemini_models}")
+                valid_gemini_models.append(m.name.replace('models/', ''))
     except Exception as e:
         print(f"⚠️ Gemini Config Error: {e}")
 
-# --- SMART DATABASE SETUP ---
+# --- DATABASE SETUP ---
 DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-if DATABASE_URL:
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    print(f"🗄️ Connecting to Cloud Database: {DATABASE_URL.split('@')[1]}")
-    engine = create_engine(DATABASE_URL)
-else:
-    print("🗄️ Using Local SQLite Database")
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./janus_forge.db"
-    engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(DATABASE_URL if DATABASE_URL else "sqlite:///./janus_forge.db", 
+                       connect_args={"check_same_thread": False} if not DATABASE_URL else {})
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -103,7 +94,7 @@ class SessionDB(Base):
 class DailySessionDB(Base):
     __tablename__ = "daily_sessions"
     id = Column(Integer, primary_key=True, index=True)
-    date_key = Column(Date, unique=True, index=True) # e.g., 2023-10-27
+    date_key = Column(Date, unique=True, index=True)
     topic = Column(String)
     messages = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -116,264 +107,143 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 def verify_password(plain, hashed): return pwd_context.verify(plain, hashed)
 def get_hash(password): return pwd_context.hash(password)
-
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
 def get_db():
     db = SessionLocal()
     try: yield db
     finally: db.close()
-
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
-        if email is None: raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+        if email is None: raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError: raise HTTPException(status_code=401, detail="Invalid token")
     user = db.query(UserDB).filter(UserDB.email == email).first()
-    if user is None: raise credentials_exception
+    if user is None: raise HTTPException(status_code=401, detail="User not found")
     return user
 
-# --- AI CLIENT INITIALIZATION ---
+# --- AI CLIENTS & FUNCTIONS ---
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if (OPENAI_AVAILABLE and OPENAI_API_KEY) else None
 anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if (ANTHROPIC_AVAILABLE and ANTHROPIC_API_KEY) else None
 
-# --- AI CALL FUNCTIONS ---
 def call_gemini_api(prompt):
-    if not GEMINI_AVAILABLE or not GEMINI_API_KEY: return "⚠️ Gemini unavailable (Key/Lib missing)"
-    models_to_try = []
-    if valid_gemini_models:
-        flash_models = [m for m in valid_gemini_models if 'flash' in m]
-        pro_models = [m for m in valid_gemini_models if 'pro' in m]
-        models_to_try.extend(flash_models)
-        models_to_try.extend(pro_models)
-    fallback_models = ['gemini-1.5-flash-latest', 'gemini-1.5-flash-001', 'gemini-1.5-pro-latest', 'gemini-1.5-pro-001', 'gemini-pro']
-    for m in fallback_models:
-        if m not in models_to_try: models_to_try.append(m)
-    errors = []
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            return model.generate_content(prompt).text
-        except Exception as e:
-            errors.append(f"{model_name}: {str(e)}")
-            continue
-    return f"❌ Gemini Error: All models failed. Details: {'; '.join(errors[:3])}..."
+    if not GEMINI_AVAILABLE or not GEMINI_API_KEY: return "⚠️ Gemini unavailable"
+    models = [m for m in valid_gemini_models if 'flash' in m] + [m for m in valid_gemini_models if 'pro' in m] + ['gemini-1.5-flash-latest', 'gemini-pro']
+    for m in models:
+        try: return genai.GenerativeModel(m).generate_content(prompt).text
+        except: continue
+    return "❌ Gemini Error: All models failed."
 
 def call_deepseek_api(prompt):
     if not DEEPSEEK_API_KEY: return "⚠️ DeepSeek Key missing"
     try:
-        headers = {'Authorization': f'Bearer {DEEPSEEK_API_KEY}', 'Content-Type': 'application/json'}
-        data = {"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "stream": False}
-        res = requests.post('https://api.deepseek.com/chat/completions', headers=headers, json=data, timeout=30)
-        if res.status_code == 200: return res.json()['choices'][0]['message']['content']
-        return f"❌ DeepSeek Error: {res.status_code} - {res.text}"
-    except Exception as e: return f"❌ DeepSeek Error: {str(e)}"
+        res = requests.post('https://api.deepseek.com/chat/completions', 
+                          headers={'Authorization': f'Bearer {DEEPSEEK_API_KEY}', 'Content-Type': 'application/json'},
+                          json={"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}], "stream": False}, timeout=30)
+        return res.json()['choices'][0]['message']['content'] if res.status_code == 200 else f"Error: {res.status_code}"
+    except Exception as e: return f"Error: {e}"
 
-def call_grok_api(prompt):
-    if not GROK_API_KEY: return "⚠️ Grok Key missing"
-    try:
-        headers = {'Authorization': f'Bearer {GROK_API_KEY}', 'Content-Type': 'application/json'}
-        data = {"model": "grok-beta", "messages": [{"role": "user", "content": prompt}], "stream": False}
-        res = requests.post('https://api.x.ai/v1/chat/completions', headers=headers, json=data, timeout=30)
-        if res.status_code == 200: return res.json()['choices'][0]['message']['content']
-        return "🦄 Grok: API endpoint unreachable."
-    except:
-        return "🦄 Grok: API endpoint unreachable."
-
+def call_grok_api(prompt): return "🦄 Grok: API endpoint unreachable."
 def call_openai_api(prompt):
     if not openai_client: return "⚠️ OpenAI unavailable"
-    try:
-        res = openai_client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}])
-        return res.choices[0].message.content
-    except Exception as e: return f"❌ OpenAI Error: {str(e)}"
+    try: return openai_client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}]).choices[0].message.content
+    except Exception as e: return f"Error: {e}"
 
-def build_context_prompt(current_prompt, previous_messages, ai_name):
-    history = "\n".join([f"{'👤 User' if m['role'] == 'user' else '🤖 ' + (m.get('ai_name') or 'AI')}: {m['content']}" for m in previous_messages[-6:]])
-    return f"""You are participating in a debate on Janus Forge.
-    HISTORY:
-    {history}
-    CURRENT PROMPT: {current_prompt}
-    Respond as {ai_name}. Be insightful and concise."""
+def build_context_prompt(curr, prev, ai):
+    hist = "\n".join([f"{'👤 User' if m['role'] == 'user' else '🤖 ' + (m.get('ai_name') or 'AI')}: {m['content']}" for m in prev[-6:]])
+    return f"Participate in debate.\nHISTORY:\n{hist}\nPROMPT: {curr}\nRespond as {ai}."
 
-# --- AUTONOMOUS LOGIC ---
-def generate_daily_topic():
-    # Ask Gemini to invent a topic
-    topics_prompt = "Generate 1 provocative, philosophical, or futuristic debate topic for AI systems to discuss. Output ONLY the topic statement."
-    return call_gemini_api(topics_prompt)
-
+def generate_daily_topic(): return call_gemini_api("Generate 1 provocative debate topic for AI. Output ONLY topic.")
 def run_autonomous_debate(topic):
-    messages = []
-    # 1. Thesis (Gemini)
-    thesis_prompt = f"Topic: {topic}. Present a strong, optimistic, or structured THESIS on this topic. Keep it under 100 words."
-    gemini_resp = call_gemini_api(thesis_prompt)
-    messages.append({"role": "assistant", "ai_name": "gemini", "content": gemini_resp, "timestamp": datetime.utcnow().isoformat()})
-    
-    # 2. Antithesis (DeepSeek)
-    antithesis_prompt = f"Topic: {topic}. Previous argument: '{gemini_resp}'. Present a sharp ANTITHESIS. Challenge the assumptions. Keep it under 100 words."
-    deepseek_resp = call_deepseek_api(antithesis_prompt)
-    messages.append({"role": "assistant", "ai_name": "deepseek", "content": deepseek_resp, "timestamp": datetime.utcnow().isoformat()})
-    
-    # 3. Synthesis (Gemini or Grok)
-    synthesis_prompt = f"Topic: {topic}. Thesis: '{gemini_resp}'. Antithesis: '{deepseek_resp}'. Provide a SYNTHESIS that resolves this tension. Keep it under 100 words."
-    synthesis_resp = call_gemini_api(synthesis_prompt)
-    messages.append({"role": "assistant", "ai_name": "gemini", "content": synthesis_resp, "timestamp": datetime.utcnow().isoformat()})
-    
-    return messages
+    msgs = []
+    t = call_gemini_api(f"Topic: {topic}. Present THESIS. <100 words.")
+    msgs.append({"role": "assistant", "ai_name": "gemini", "content": t, "timestamp": datetime.utcnow().isoformat()})
+    a = call_deepseek_api(f"Topic: {topic}. Thesis: '{t}'. Present ANTITHESIS. <100 words.")
+    msgs.append({"role": "assistant", "ai_name": "deepseek", "content": a, "timestamp": datetime.utcnow().isoformat()})
+    s = call_gemini_api(f"Topic: {topic}. Thesis: '{t}'. Antithesis: '{a}'. Provide SYNTHESIS. <100 words.")
+    msgs.append({"role": "assistant", "ai_name": "gemini", "content": s, "timestamp": datetime.utcnow().isoformat()})
+    return msgs
 
-# --- FASTAPI APP ---
+# --- FASTAPI SETUP ---
 app = FastAPI(title="Janus Forge Nexus")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# --- INPUT MODELS ---
-class UserCreate(BaseModel):
-    email: str
-    password: str
-    full_name: str
-
-class BroadcastRequest(BaseModel):
-    session_id: str
-    ai_participants: List[str]
-    moderator_prompt: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    user_tier: str
-    user_name: str
-
-class Message(BaseModel):
-    role: str
-    content: str
-    timestamp: str
-    ai_name: Optional[str] = None
-
-class BroadcastResponse(BaseModel):
-    session_id: str
-    responses: List[Message]
-    timestamp: str
-
-class DailySessionResponse(BaseModel):
-    id: int
-    date: str
-    topic: str
-    messages: List[Message]
+# --- Pydantic ---
+class UserCreate(BaseModel): email: str; password: str; full_name: str
+class BroadcastRequest(BaseModel): session_id: str; ai_participants: List[str]; moderator_prompt: str
+class Token(BaseModel): access_token: str; token_type: str; user_tier: str; user_name: str
+class Message(BaseModel): role: str; content: str; timestamp: str; ai_name: Optional[str] = None
+class BroadcastResponse(BaseModel): session_id: str; responses: List[Message]; timestamp: str
+class DailySessionResponse(BaseModel): id: int; date: str; topic: str; messages: List[Message]
+class HistoryItem(BaseModel): session_id: str; created_at: datetime; message_count: int; snippet: str
 
 # --- ROUTES ---
 @app.post("/api/auth/signup", response_model=Token)
 def signup(user: UserCreate, db: Session = Depends(get_db)):
-    if db.query(UserDB).filter(UserDB.email == user.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+    if db.query(UserDB).filter(UserDB.email == user.email).first(): raise HTTPException(400, "Email registered")
     new_user = UserDB(email=user.email, hashed_password=get_hash(user.password), full_name=user.full_name)
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    db.add(new_user); db.commit(); db.refresh(new_user)
     return {"access_token": create_access_token({"sub": new_user.email}), "token_type": "bearer", "user_tier": new_user.tier, "user_name": new_user.full_name}
 
 @app.post("/api/auth/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(UserDB).filter(UserDB.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect credentials")
+    if not user or not verify_password(form_data.password, user.hashed_password): raise HTTPException(401, "Incorrect credentials")
     return {"access_token": create_access_token({"sub": user.email}), "token_type": "bearer", "user_tier": user.tier, "user_name": user.full_name}
 
 @app.post("/api/v1/broadcast", response_model=BroadcastResponse)
 async def broadcast(req: BroadcastRequest, user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
-    # ... (Keep existing broadcast logic) ...
     db_session = db.query(SessionDB).filter(SessionDB.session_id == req.session_id).first()
     if not db_session:
         db_session = SessionDB(session_id=req.session_id, user_id=user.id, messages=[])
         db.add(db_session)
-    
-    current_messages = list(db_session.messages) if db_session.messages else []
-    current_messages.append({"role": "user", "content": req.moderator_prompt, "timestamp": datetime.utcnow().isoformat(), "ai_name": None})
-
-    new_responses = []
+    msgs = list(db_session.messages) if db_session.messages else []
+    msgs.append({"role": "user", "content": req.moderator_prompt, "timestamp": datetime.utcnow().isoformat(), "ai_name": None})
+    new_resp = []
     for ai in req.ai_participants:
         try:
-            final_prompt = build_context_prompt(req.moderator_prompt, current_messages, ai)
-            response_text = ""
-            if ai == 'gemini': response_text = call_gemini_api(final_prompt)
-            elif ai == 'deepseek': response_text = call_deepseek_api(final_prompt)
-            elif ai == 'grok': response_text = call_grok_api(final_prompt)
-            elif ai == 'openai': response_text = call_openai_api(final_prompt)
-            
-            ai_msg = {"role": "assistant", "content": response_text, "timestamp": datetime.utcnow().isoformat(), "ai_name": ai}
-            new_responses.append(ai_msg)
-            current_messages.append(ai_msg)
-        except Exception as e:
-            print(f"❌ Error: {e}")
-
-    db_session.messages = current_messages
-    db.commit()
-    return BroadcastResponse(session_id=req.session_id, responses=[Message(**m) for m in new_responses], timestamp=datetime.utcnow().isoformat())
-
-# --- NEW DAILY JANUS ROUTES ---
+            prompt = build_context_prompt(req.moderator_prompt, msgs, ai)
+            txt = call_gemini_api(prompt) if ai == 'gemini' else call_deepseek_api(prompt) if ai == 'deepseek' else call_grok_api(prompt) if ai == 'grok' else call_openai_api(prompt) if ai == 'openai' else "..."
+            ai_msg = {"role": "assistant", "content": txt, "timestamp": datetime.utcnow().isoformat(), "ai_name": ai}
+            new_resp.append(ai_msg); msgs.append(ai_msg)
+        except: pass
+    db_session.messages = msgs; db.commit()
+    return BroadcastResponse(session_id=req.session_id, responses=[Message(**m) for m in new_resp], timestamp=datetime.utcnow().isoformat())
 
 @app.get("/api/v1/daily/latest", response_model=Optional[DailySessionResponse])
 def get_latest_daily(db: Session = Depends(get_db)):
-    # Fetch today's debate. If not found, fetch the most recent one.
-    today = date.today()
-    daily = db.query(DailySessionDB).filter(DailySessionDB.date_key == today).first()
-    
-    if not daily:
-        # Fallback to latest
-        daily = db.query(DailySessionDB).order_by(DailySessionDB.date_key.desc()).first()
-        
-    if not daily:
-        return None # Frontend handles "No daily debate yet" state
-        
-    return DailySessionResponse(
-        id=daily.id,
-        date=daily.date_key.isoformat(),
-        topic=daily.topic,
-        messages=[Message(**m) for m in daily.messages]
-    )
+    d = db.query(DailySessionDB).filter(DailySessionDB.date_key == date.today()).first() or db.query(DailySessionDB).order_by(DailySessionDB.date_key.desc()).first()
+    return DailySessionResponse(id=d.id, date=d.date_key.isoformat(), topic=d.topic, messages=[Message(**m) for m in d.messages]) if d else None
 
 @app.post("/api/v1/daily/generate", response_model=DailySessionResponse)
 def trigger_daily_debate(user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Only allow if today doesn't exist (or allow overwrite? Let's strict for now)
-    today = date.today()
-    existing = db.query(DailySessionDB).filter(DailySessionDB.date_key == today).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Daily debate for today already exists.")
+    if db.query(DailySessionDB).filter(DailySessionDB.date_key == date.today()).first(): raise HTTPException(400, "Exists")
+    topic = generate_daily_topic(); msgs = run_autonomous_debate(topic)
+    new_d = DailySessionDB(date_key=date.today(), topic=topic, messages=msgs)
+    db.add(new_d); db.commit(); db.refresh(new_d)
+    return DailySessionResponse(id=new_d.id, date=new_d.date_key.isoformat(), topic=new_d.topic, messages=[Message(**m) for m in msgs])
 
-    # 1. Generate Topic
-    topic = generate_daily_topic()
-    if "Error" in topic: topic = "The Future of AI: Stewardship vs. Acceleration" # Fallback
+# --- NEW HISTORY ROUTE ---
+@app.get("/api/v1/history", response_model=List[HistoryItem])
+def get_history(user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    sessions = db.query(SessionDB).filter(SessionDB.user_id == user.id).order_by(SessionDB.created_at.desc()).all()
+    history = []
+    for s in sessions:
+        snippet = "Empty Session"
+        if s.messages and len(s.messages) > 0:
+            first_user_msg = next((m for m in s.messages if m['role'] == 'user'), None)
+            if first_user_msg: snippet = first_user_msg['content'][:50] + "..."
+        history.append(HistoryItem(session_id=s.session_id, created_at=s.created_at, message_count=len(s.messages) if s.messages else 0, snippet=snippet))
+    return history
 
-    # 2. Run Debate
-    messages = run_autonomous_debate(topic)
-
-    # 3. Save
-    new_daily = DailySessionDB(date_key=today, topic=topic, messages=messages)
-    db.add(new_daily)
-    db.commit()
-    db.refresh(new_daily)
-
-    return DailySessionResponse(
-        id=new_daily.id,
-        date=new_daily.date_key.isoformat(),
-        topic=new_daily.topic,
-        messages=[Message(**m) for m in messages]
-    )
+@app.get("/api/v1/session/{session_id}", response_model=BroadcastResponse)
+def get_session(session_id: str, user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    s = db.query(SessionDB).filter(SessionDB.session_id == session_id, SessionDB.user_id == user.id).first()
+    if not s: raise HTTPException(404, "Not found")
+    return BroadcastResponse(session_id=s.session_id, responses=[Message(**m) for m in s.messages], timestamp=datetime.utcnow().isoformat())
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
