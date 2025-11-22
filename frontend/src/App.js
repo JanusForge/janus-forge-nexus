@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Route, Routes, NavLink, useParams } from 'react-router-dom';
 import './App.css';
 
+// --- ASSETS ---
+import janusLogoVideo from './janus-logo.mp4'; 
+
 // --- IMPORTS ---
 import { sessionService } from './services/api';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -61,21 +64,30 @@ function AuthModal({ isOpen, onClose, onLogin, onSignup, onViewDemo, isLoading, 
   return (
     <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
-        {/* VIDEO LOGO IN MODAL */}
-        <video src="/janus-logo.mp4" autoPlay loop muted playsInline style={videoStyle} />
+        <video 
+          src={janusLogoVideo} 
+          autoPlay 
+          loop 
+          muted 
+          playsInline 
+          style={videoStyle} 
+        />
         
         <h2 style={{ textAlign: 'center', color: '#333', marginTop: 0 }}>{isLoginMode ? 'Welcome Back' : 'Join Janus Forge'}</h2>
         {error && <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', marginBottom: '10px', borderRadius: '4px' }}>{error}</div>}
+        
         <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
           {!isLoginMode && <input type="text" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={inputStyle} required />}
           <input type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={inputStyle} required />
           <input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ ...inputStyle, marginBottom: '20px' }} required />
           <button type="submit" disabled={isLoading} style={btnStyle}>{isLoading ? 'Processing...' : (isLoginMode ? 'Sign In' : 'Create Account')}</button>
         </form>
+        
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
           <button onClick={onViewDemo} style={{ width: '100%', padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>👁️ View Live Demo Session</button>
           <p style={{ textAlign: 'center', fontSize: '14px', cursor: 'pointer', color: 'blue', margin: 0 }} onClick={() => setIsLoginMode(!isLoginMode)}>{isLoginMode ? "Need an account? Sign up" : "Have an account? Sign in"}</p>
         </div>
+
         {user && <button onClick={onClose} style={{ marginTop: '10px', width: '100%', padding: '8px' }}>Close</button>}
       </div>
     </div>
@@ -374,8 +386,14 @@ function Header({ user, logout }) {
   return (
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', backgroundColor: 'white', borderBottom: '1px solid #ddd' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {/* VIDEO LOGO */}
-        <video src="/janus-logo.mp4" autoPlay loop muted playsInline style={videoStyle} />
+        <video 
+          src={janusLogoVideo} 
+          autoPlay 
+          loop 
+          muted 
+          playsInline 
+          style={videoStyle} 
+        />
         <div>
           <h1 style={{ margin: 0, fontSize: '20px', color: '#333', lineHeight: '1' }}>Janus Forge Nexus</h1>
           <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#666', fontStyle: 'italic' }}>Thesis. Antithesis. Humanity.</p>
@@ -399,18 +417,34 @@ function AppContent() {
   const handleUpgradePrompt = () => alert("Upgrade coming soon via Stripe!");
   const handleViewDemo = () => { setShowAuth(false); setViewingDemo(true); };
 
-  if (viewingDemo) return <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}><DemoViewer onExit={() => setViewingDemo(false)} /></div>;
+  if (viewingDemo) {
+    return (
+      <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
+        <DemoViewer onExit={() => setViewingDemo(false)} />
+      </div>
+    );
+  }
 
   return (
     <Router>
       <div className="App" style={{ backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
         {user && <Header user={user} logout={logout} />}
-        <AuthModal isOpen={showAuth && !user} onClose={() => {}} onLogin={login} onSignup={signup} onViewDemo={handleViewDemo} error={authError} isLoading={isLoading} />
-        {user && <Routes>
+        <AuthModal 
+          isOpen={showAuth && !user} 
+          onClose={() => {}} 
+          onLogin={login} 
+          onSignup={signup} 
+          onViewDemo={handleViewDemo} 
+          error={authError} 
+          isLoading={isLoading} 
+        />
+        {user && (
+          <Routes>
             <Route path="/" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
             <Route path="/session/:sessionId" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
             <Route path="/history" element={<HistoryPage />} />
-        </Routes>}
+          </Routes>
+        )}
       </div>
     </Router>
   );
