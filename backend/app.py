@@ -245,6 +245,10 @@ def get_session(session_id: str, user: UserDB = Depends(get_current_user), db: S
     if not s: raise HTTPException(404, "Not found")
     return BroadcastResponse(session_id=s.session_id, responses=[Message(**m) for m in s.messages], timestamp=datetime.utcnow().isoformat())
 
+@app.get("/")
+def root():
+    return {"message": "Janus Forge Nexus API is running. System Status: 🟢 Online"}
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
     uvicorn.run(app, host='0.0.0.0', port=port)
