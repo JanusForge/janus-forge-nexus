@@ -26,20 +26,18 @@ api.interceptors.request.use((config) => {
 
 export const authService = {
   login: async (username, password) => {
-    // FIX: Use URLSearchParams for standard OAuth2 form encoding
-    // and explicitly override the Content-Type header
-    const params = new URLSearchParams();
-    params.append('username', username); // Backend expects 'username', we map email to it
-    params.append('password', password);
+    // MANUALLY construct the form data string to guarantee correct format
+    // FastAPI expects: username=...&password=...
+    const formData = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
     
-    return api.post('/api/auth/login', params, {
+    return api.post('/api/auth/login', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     });
   },
   signup: async (email, password, name) => {
-    // Signup expects JSON, so we use the default settings
+    // Signup expects JSON
     return api.post('/api/auth/signup', { 
       email, 
       password, 
