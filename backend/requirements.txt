@@ -1,1 +1,13 @@
-fastapi==0.109.0uvicorn==0.27.0pydantic==2.6.0requests==2.31.0python-dotenv==1.0.1sqlalchemy==2.0.25psycopg2-binary==2.9.9passlib[bcrypt]==1.7.4python-jose[cryptography]==3.3.0python-multipart==0.0.6google-generativeai>=0.8.5openai>=1.10.0anthropic>=0.18.0
+fastapi==0.109.0
+uvicorn==0.27.0
+pydantic==2.6.0
+requests==2.31.0
+python-dotenv==1.0.1
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.6
+google-generativeai>=0.8.5
+openai>=1.10.0
+anthropic>=0.18.0
