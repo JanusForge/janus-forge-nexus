@@ -176,20 +176,18 @@ def run_autonomous_debate(topic):
     msgs.append({"role": "assistant", "ai_name": "gemini", "content": s, "timestamp": datetime.utcnow().isoformat()})
     return msgs
 # --- FASTAPI SETUP ---
-# NEW CODE
-# Define the explicit origins for enhanced security
-origins = [
-    "https://janusforge-frontend.onrender.com", 
-    "https://janusforge.ai", 
-    "https://www.janusforge.ai",
-    "http://localhost:3000", # Optional: for local testing
-    "http://localhost:8000"
-]
+# NEW CODE: Ensuring everything is defined after the FastAPI app is instantiated.
 
 app = FastAPI(title="Janus Forge Nexus")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins, 
+    allow_origins=[
+        "https://janusforge-frontend.onrender.com", 
+        "https://janusforge.ai", 
+        "https://www.janusforge.ai",
+        "http://localhost:3000",
+        "http://localhost:8000"
+    ], 
     allow_credentials=True, 
     allow_methods=["*"], 
     allow_headers=["*"]
