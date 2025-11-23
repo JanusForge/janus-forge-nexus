@@ -11,7 +11,7 @@ const API_URL = process.env.REACT_APP_API_URL;
 // const API_URL = process.env.REACT_APP_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : null);
 
 // NEW: Setting baseURL to an empty string. The proxy rule handles the root path.
-const API_URL = process.env.REACT_APP_API_URL;
+
 const api = axios.create({
   baseURL: '', 
   headers: {
