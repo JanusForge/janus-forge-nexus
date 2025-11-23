@@ -13,7 +13,7 @@ const API_URL = process.env.REACT_APP_API_URL;
 // NEW: Setting baseURL to an empty string. The proxy rule handles the root path.
 
 const api = axios.create({
-  baseURL: '', 
+  baseURL: API_URL, // <-- Changed to explicit variable
   headers: {
     'Content-Type': 'application/json',
   },
@@ -58,7 +58,7 @@ export const authService = {
     });
   },
   signup: async (email, password, name) => {
-    return api.post('/api/auth/signup', { 
+    return api.post('api/auth/signup', { 
       email, 
       password, 
       full_name: name 
@@ -67,11 +67,11 @@ export const authService = {
 };
 
 export const sessionService = {
-  broadcast: (payload) => api.post('/api/v1/broadcast', payload),
-  getLatestDaily: () => api.get('/api/v1/daily/latest'),
-  generateDaily: () => api.post('/api/v1/daily/generate'),
-  getHistory: () => api.get('/api/v1/history'),
-  getSession: (id) => api.get(`/api/v1/session/${id}`),
+  broadcast: (payload) => api.post('api/v1/broadcast', payload),
+  getLatestDaily: () => api.get('api/v1/daily/latest'),
+  generateDaily: () => api.post('api/v1/daily/generate'),
+  getHistory: () => api.get('api/v1/history'),
+  getSession: (id) => api.get(`api/v1/session/${id}`),
 };
 
 export default api;
