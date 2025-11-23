@@ -1,7 +1,14 @@
 import axios from 'axios';
 
 // SMART SWITCHER:
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000"; 
+// ✅ NEW CODE: FORCES USE OF RENDER ENV VARIABLE
+// SMART SWITCHER:
+const API_URL = process.env.REACT_APP_API_URL;
+
+// Optional but safer way for local development:
+// If you are developing locally, use a .env file.
+// If not using a .env file, you can keep the fallback but make it more explicit:
+// const API_URL = process.env.REACT_APP_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : null);
 
 const api = axios.create({
   baseURL: API_URL,
