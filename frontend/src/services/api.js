@@ -10,11 +10,12 @@ const API_URL = process.env.REACT_APP_API_URL;
 // If not using a .env file, you can keep the fallback but make it more explicit:
 // const API_URL = process.env.REACT_APP_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : null);
 
+// ✅ NEW CODE: Ensure trailing slash on Base URL
 const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: `${API_URL}/`, // <-- Added trailing slash
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
 // 1. ATTACH TOKEN (Outgoing)
@@ -49,14 +50,14 @@ export const authService = {
   login: async (username, password) => {
     const formData = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
     
-    return api.post('/api/auth/login', formData, {
+    return api.post('api/auth/login', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     });
   },
   signup: async (email, password, name) => {
-    return api.post('/api/auth/signup', { 
+    return api.post('api/auth/signup', { 
       email, 
       password, 
       full_name: name 
@@ -65,11 +66,11 @@ export const authService = {
 };
 
 export const sessionService = {
-  broadcast: (payload) => api.post('/api/v1/broadcast', payload),
-  getLatestDaily: () => api.get('/api/v1/daily/latest'),
-  generateDaily: () => api.post('/api/v1/daily/generate'),
-  getHistory: () => api.get('/api/v1/history'),
-  getSession: (id) => api.get(`/api/v1/session/${id}`),
+  broadcast: (payload) => api.post('api/v1/broadcast', payload),
+  getLatestDaily: () => api.get('api/v1/daily/latest'),
+  generateDaily: () => api.post('api/v1/daily/generate'),
+  getHistory: () => api.get('api/v1/history'),
+  getSession: (id) => api.get(`api/v1/session/${id}`),
 };
 
 export default api;
