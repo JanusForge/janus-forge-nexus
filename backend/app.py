@@ -116,7 +116,7 @@ class DailySessionDB(Base):
     topic = Column(String)
     messages = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
-Base.metadata.create_all(bind=engine)
+
 # --- AUTH UTILS ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -140,8 +140,21 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user is None: raise HTTPException(status_code=401, detail="User not found")
     return user
 # --- AI CLIENTS & FUNCTIONS ---
-openai_client = OpenAI(api_key=OPENAI_API_KEY) if (OPENAI_AVAILABLE and OPENAI_API_KEY) else None
-anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if (ANTHROPIC_AVAILABLE and ANTHROPIC_API_KEY) else None
+openai_client = None
+if OPENAI_AVAILABLE and OPENAI_API_KEY:
+    try:
+        openai_client = OpenAI(api_key=OPENAI_API_KEY)
+    except Exception as e:
+        print(f"⚠️ OpenAI Client Init Failed: {e}")
+
+anthropic_client = None
+if ANTHROPIC_AVAILABLE and ANTHROPIC_API_KEY:
+    try:
+        anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+    except Exception as e:
+        print(f"⚠️ Anthropic Client Init Failed: {e}")
+
+
 def call_gemini_api(prompt):
     if not GEMINI_AVAILABLE or not GEMINI_API_KEY: return "⚠️ Gemini unavailable"
     models = [m for m in valid_gemini_models if 'flash' in m] + [m for m in valid_gemini_models if 'pro' in m] + ['gemini-1.5-flash-latest', 'gemini-pro']
