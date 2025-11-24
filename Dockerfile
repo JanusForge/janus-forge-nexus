@@ -18,5 +18,5 @@ COPY backend/ .
 # Expose port
 EXPOSE 8080
 
-# Start the application
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+# Start the application using the dynamic $PORT environment variable
+CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "$PORT"]
