@@ -17,7 +17,6 @@ from dotenv import load_dotenv
 # --- STRIPE IMPORTS ---
 import stripe
 from typing import Union
-
 # --- LOAD ENVIRONMENT VARIABLES ---
 load_dotenv()
 # --- OPTIONAL IMPORTS ---
@@ -49,7 +48,6 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
 GROK_API_KEY = os.getenv('GROK_API_KEY')
-
 # --- STRIPE SETUP ---
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
@@ -61,7 +59,6 @@ if STRIPE_SECRET_KEY:
         # The application will continue running, but Stripe operations will fail gracefully later.
 else:
     print("⚠️ STRIPE_SECRET_KEY missing")
-
 # --- GEMINI SETUP ---
 valid_gemini_models = []
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
@@ -72,16 +69,13 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
                 valid_gemini_models.append(m.name.replace('models/', ''))
     except Exception as e:
         print(f"⚠️ Gemini Config Error: {e}")
-
 # --- DATABASE SETUP ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
 # Define Base first
 Base = declarative_base()
-
-# --- MODELS --- (Now after Base for proper registration)
+# --- MODELS ---
 class UserDB(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -105,7 +99,6 @@ class DailySessionDB(Base):
     topic = Column(String)
     messages = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
-
 # Try Postgres, fallback to SQLite
 try:
     is_sqlite = DATABASE_URL and 'sqlite' in DATABASE_URL.lower()
@@ -121,9 +114,6 @@ except Exception as e:
     Base.metadata.create_all(bind=engine)
     print("✅ DB tables created (SQLite)")
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-
 # --- AUTH UTILS ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -153,15 +143,12 @@ if OPENAI_AVAILABLE and OPENAI_API_KEY:
         openai_client = OpenAI(api_key=OPENAI_API_KEY)
     except Exception as e:
         print(f"⚠️ OpenAI Client Init Failed: {e}")
-
 anthropic_client = None
 if ANTHROPIC_AVAILABLE and ANTHROPIC_API_KEY:
     try:
         anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
     except Exception as e:
         print(f"⚠️ Anthropic Client Init Failed: {e}")
-
-
 def call_gemini_api(prompt):
     if not GEMINI_AVAILABLE or not GEMINI_API_KEY: return "⚠️ Gemini unavailable"
     models = [m for m in valid_gemini_models if 'flash' in m] + [m for m in valid_gemini_models if 'pro' in m] + ['gemini-1.5-flash-latest', 'gemini-pro']
@@ -197,23 +184,20 @@ def run_autonomous_debate(topic):
     return msgs
 # --- FASTAPI SETUP ---
 # NEW CODE: Ensuring everything is defined after the FastAPI app is instantiated.
-
 app = FastAPI(title="Janus Forge Nexus")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://janusforge-frontend.onrender.com", 
-        "https://janusforge.ai", 
+        "https://janusforge-frontend.onrender.com",
+        "https://janusforge.ai",
         "https://www.janusforge.ai",
         "http://localhost:3000",
         "http://localhost:8000"
-    ], 
-    allow_credentials=True, 
-    allow_methods=["*"], 
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
     allow_headers=["*"]
 )
-
-
 # --- Pydantic ---
 class UserCreate(BaseModel): email: str; password: str; full_name: str
 class BroadcastRequest(BaseModel): session_id: str; ai_participants: List[str]; moderator_prompt: str
@@ -224,7 +208,7 @@ class DailySessionResponse(BaseModel): id: int; date: str; topic: str; messages:
 class HistoryItem(BaseModel): session_id: str; created_at: datetime; message_count: int; snippet: str
 # --- STRIPE MODELS ---
 class CheckoutRequest(BaseModel):
-    tier: str  # 'pro' or 'enterprise'
+    tier: str # 'pro' or 'enterprise'
 class PaymentStatus(BaseModel):
     tier: str
     subscription_id: Optional[str] = None
@@ -302,13 +286,11 @@ async def create_checkout_session(req: CheckoutRequest, user: UserDB = Depends(g
             db.commit()
         else:
             customer = stripe.Customer.retrieve(user.stripe_customer_id)
-
 # Price IDs (create in Stripe Dashboard)
         price_map = {
-            'pro': 'price_1SVxLeGg8RUnSFObKobkPrcE',  # Your Pro
-            'enterprise': 'price_1SVxMEGg8RUnSFObB08Qfs7I'  # Your Enterprise
+            'pro': 'price_1SVxLeGg8RUnSFObKobkPrcE', # Your Pro
+            'enterprise': 'price_1SVxMEGg8RUnSFObB08Qfs7I' # Your Enterprise
         }
-
         price_id = price_map[req.tier]
         # Create session
         session = stripe.checkout.Session.create(
@@ -323,12 +305,10 @@ async def create_checkout_session(req: CheckoutRequest, user: UserDB = Depends(g
         return {'id': session.id}
     except Exception as e:
         raise HTTPException(500, f"Checkout error: {str(e)}")
-
 @app.get("/api/v1/payments/status", response_model=PaymentStatus)
 async def get_payment_status(user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
-    is_active = bool(user.subscription_id)  # Assume active if sub ID present
+    is_active = bool(user.subscription_id) # Assume active if sub ID present
     return PaymentStatus(tier=user.tier, subscription_id=user.subscription_id, is_active=is_active)
-
 @app.post("/api/v1/webhook/stripe")
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
@@ -339,7 +319,6 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(400, "Invalid payload")
     except stripe.error.SignatureVerificationError:
         raise HTTPException(400, "Invalid signature")
-
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
         user_id = int(session.metadata['user_id'])
@@ -349,7 +328,6 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             user.tier = tier
             user.subscription_id = session.subscription
             db.commit()
-
     elif event['type'] == 'invoice.payment_succeeded':
         # Ensure tier stays active
         sub = event['data']['object'].subscription
@@ -357,9 +335,8 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         if user_id:
             user = db.query(UserDB).filter(UserDB.id == int(user_id)).first()
             if user:
-                user.tier = user.tier  # Retain (or map from sub)
+                user.tier = user.tier # Retain (or map from sub)
                 db.commit()
-
     elif event['type'] in ['invoice.payment_failed', 'customer.subscription.deleted']:
         # Downgrade to free
         sub = event['data']['object'].subscription if 'subscription' in event['data']['object'] else event['data']['object'].subscription
@@ -370,9 +347,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                 user.tier = 'free'
                 user.subscription_id = None
                 db.commit()
-
     return {'status': 'success'}
-
 @app.get("/")
 def root():
     return {"message": "Janus Forge Nexus API is running. System Status: 🟢 Online"}
