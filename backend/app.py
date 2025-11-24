@@ -73,6 +73,32 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
     except Exception as e:
         print(f"⚠️ Gemini Config Error: {e}")
 
+# --- MODELS ---
+class UserDB(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    full_name = Column(String)
+    tier = Column(String, default="free")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    stripe_customer_id = Column(String, nullable=True)
+    subscription_id = Column(String, nullable=True)
+class SessionDB(Base):
+    __tablename__ = "sessions"
+    session_id = Column(String, primary_key=True, index=True)
+    user_id = Column(Integer)
+    messages = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+class DailySessionDB(Base):
+    __tablename__ = "daily_sessions"
+    id = Column(Integer, primary_key=True, index=True)
+    date_key = Column(Date, unique=True, index=True)
+    topic = Column(String)
+    messages = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 
 # --- DATABASE SETUP ---
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -100,30 +126,6 @@ except Exception as e:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-# --- MODELS ---
-class UserDB(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
-    full_name = Column(String)
-    tier = Column(String, default="free")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    stripe_customer_id = Column(String, nullable=True)
-    subscription_id = Column(String, nullable=True)
-class SessionDB(Base):
-    __tablename__ = "sessions"
-    session_id = Column(String, primary_key=True, index=True)
-    user_id = Column(Integer)
-    messages = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
-class DailySessionDB(Base):
-    __tablename__ = "daily_sessions"
-    id = Column(Integer, primary_key=True, index=True)
-    date_key = Column(Date, unique=True, index=True)
-    topic = Column(String)
-    messages = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 # --- AUTH UTILS ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
