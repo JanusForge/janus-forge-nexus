@@ -199,18 +199,19 @@ function Header({ user, logout }) {
   // ... unchanged
 }
 function AppContent() {
-  const [showAuthModal, setShowAuthModal] = useState(false);  // Initial false: Show landing first
-  const [isLogin, setIsLogin] = useState(false);  // For toggle in modal
-  const [error, setError] = useState(null);  // For auth errors
-  const { user, login, signup } = useAuth();  // From your context
+  const [showAuthModal, setShowAuthModal] = useState(false);  // Initial false: Landing first!
+  const [isLogin, setIsLogin] = useState(false);  // Toggle for modal
+  const [error, setError] = useState(null);  // Auth errors
+  const { user, login, signup } = useAuth();  // Your context
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogin = async (email, password) => {
     setIsLoading(true);
     setError(null);
     try {
       await login(email, password);
-      setShowAuthModal(false);
+      setShowAuthModal(false);  // Close on success
     } catch (err) {
       setError(err.message || 'Login failed');
     }
@@ -222,7 +223,7 @@ function AppContent() {
     setError(null);
     try {
       await signup(email, password, fullName);
-      setShowAuthModal(false);
+      setShowAuthModal(false);  // Close on success
     } catch (err) {
       setError(err.message || 'Signup failed');
     }
@@ -230,45 +231,62 @@ function AppContent() {
   };
 
   const onViewDemo = () => {
-    // If no user, maybe set a demo flag or route to demo without auth
-    navigate('/demo');  // Or setShowAuthModal(true) if auth required
+    // Demo without auth—route to demo page or set flag
+    navigate('/demo');  // Or open modal if auth required
   };
 
   const onUpgradePrompt = () => {
-    // Your upgrade logic
-    setShowAuthModal(false);  // Close modal first
-    // e.g., setShowUpgrade(true);
+    setShowAuthModal(false);
+    // Trigger upgrade modal or route
   };
 
-  return (
-    <div className="app">
-      {/* Landing Page - Shows first */}
-      {!showAuthModal && (
-        <div className="landing-page">
-          <h1>The Daily Janus</h1>
-          <p>Explore provocative AI debates, synthesize humanity's edge.</p>
-          <video src={janusLogoVideo} autoPlay loop muted playsInline style={{ width: '200px', height: '200px', borderRadius: '50%' }} />
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={() => { setIsLogin(false); setShowAuthModal(true); }}>Sign Up</button>
-            <button onClick={() => { setIsLogin(true); setShowAuthModal(true); }}>Log In</button>
-            <button onClick={onViewDemo}>View Live Demo</button>
-          </div>
-        </div>
-      )}
-      {/* Routes (dashboard, history, etc.) - Show if user */}
-      {user && <Routes> ... </Routes>}
-      {/* Auth Modal - Triggers on button */}
-      <AuthModal 
-        isOpen={showAuthModal} 
-        onClose={() => setShowAuthModal(false)} 
-        onLogin={(email, password) => handleLogin(email, password)} 
-        onSignup={(email, password, fullName) => handleSignup(email, password, fullName)} 
-        onViewDemo={onViewDemo} 
-        isLoading={isLoading} 
-        error={error}
-        onUpgradePrompt={onUpgradePrompt}
-      />
+  // Landing Page JSX (shows when !showAuthModal)
+  const landingJSX = (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#1a1a1a', color: 'white' }}>
+      <video src={janusLogoVideo} autoPlay loop muted playsInline style={{ width: '200px', height: '200px', borderRadius: '50%', marginBottom: '20px' }} />
+      <h1 style={{ fontSize: '3em', margin: '0 0 20px 0' }}>The Daily Janus</h1>
+      <p style={{ fontSize: '1.2em', margin: '0 0 30px 0', textAlign: 'center', maxWidth: '600px' }}>Explore provocative AI debates. Synthesize humanity's edge in the forge of thesis and antithesis.</p>
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <button onClick={() => { setIsLogin(false); setShowAuthModal(true); }} style={{ padding: '15px 30px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '1.1em' }}>
+          Sign Up Free
+        </button>
+        <button onClick={() => { setIsLogin(true); setShowAuthModal(true); }} style={{ padding: '15px 30px', backgroundColor: 'transparent', color: '#007bff', border: '2px solid #007bff', borderRadius: '6px', cursor: 'pointer', fontSize: '1.1em' }}>
+          Log In
+        </button>
+        <button onClick={onViewDemo} style={{ padding: '15px 30px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '1.1em' }}>
+          View Live Demo
+        </button>
+      </div>
     </div>
+  );
+
+  return (
+    <Router>
+      <div className="app">
+        {user ? (
+          // Auth'd user: Routes to dashboard/history/etc.
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/history" element={<HistoryPage />} />
+            {/* Other routes */}
+          </Routes>
+        ) : (
+          // Unauth: Landing or modal
+          !showAuthModal ? landingJSX : null
+        )}
+        {/* Auth Modal - Only when triggered */}
+        <AuthModal 
+          isOpen={showAuthModal} 
+          onClose={() => setShowAuthModal(false)} 
+          onLogin={(email, password) => handleLogin(email, password)} 
+          onSignup={(email, password, fullName) => handleSignup(email, password, fullName)} 
+          onViewDemo={onViewDemo} 
+          isLoading={isLoading} 
+          error={error}
+          onUpgradePrompt={onUpgradePrompt}
+        />
+      </div>
+    </Router>
   );
 }
 export default function App() { return <AuthProvider><AppContent /></AuthProvider>; }
