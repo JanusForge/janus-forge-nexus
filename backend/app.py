@@ -49,13 +49,19 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
 GROK_API_KEY = os.getenv('GROK_API_KEY')
+
 # --- STRIPE SETUP ---
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 if STRIPE_SECRET_KEY:
-    stripe.api_key = STRIPE_SECRET_KEY
+    try:
+        stripe.api_key = STRIPE_SECRET_KEY
+    except Exception as e:
+        print(f"⚠️ FATAL STRIPE CONFIGURATION CRASH: {e}")
+        # The application will continue running, but Stripe operations will fail gracefully later.
 else:
     print("⚠️ STRIPE_SECRET_KEY missing")
+
 # --- GEMINI SETUP ---
 valid_gemini_models = []
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
