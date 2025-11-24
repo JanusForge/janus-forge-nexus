@@ -285,12 +285,12 @@ function PromptInput({ onSend, sessionId, isSending, usage, canSendMessage, onUp
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '10px' }}>
-      <input 
-        value={text} 
-        onChange={(e) => setText(e.target.value)} 
-        placeholder="Enter your prompt for the AI council..." 
-        style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} 
-        disabled={isSending} 
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Enter your prompt for the AI council..."
+        style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
+        disabled={isSending}
       />
       <button type="submit" disabled={isSending || !text.trim()} style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '6px' }}>
         Send
@@ -338,16 +338,16 @@ function Header({ user, logout }) {
   );
 }
 
-// --- APP CONTENT (Main Entry)
-function AppContent() {
-  const [showAuthModal, setShowAuthModal] = useState(false); // Initial false: Landing first!
-  const [isLogin, setIsLogin] = useState(false); // Toggle for modal login/signup
-  const [error, setError] = useState(null); // Auth errors
-  const { user, login, signup } = useAuth(); // Your context
+// --- ROUTED APP CONTENT ---
+function RoutedAppContent() {
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isLogin, setIsLogin] = useState(false);
+  const [error, setError] = useState(null);
+  const { user, login, signup } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Usage tracker (self-contained)
+  // Usage tracker
   const [usage, setUsage] = useState(() => {
     const saved = localStorage.getItem(`janusForgeUsage_${user?.email || 'anonymous'}`);
     return saved ? JSON.parse(saved) : { sessionsCreated: 0, messagesSent: 0, currentTier: user?.tier || 'free' };
@@ -394,7 +394,6 @@ function AppContent() {
   };
 
   const handleUpgradePrompt = () => {
-    // Logic to show upgrade modal
     alert('Upgrade feature coming soon!');
   };
 
@@ -450,7 +449,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <AppContent />
+        <RoutedAppContent />
       </Router>
     </AuthProvider>
   );
