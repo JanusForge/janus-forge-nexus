@@ -84,10 +84,12 @@ Base = declarative_base()
 
 # Try Postgres, fallback to SQLite
 try:
+    is_sqlite = DATABASE_URL and 'sqlite' in DATABASE_URL.lower()
+    connect_args = {"check_same_thread": False} if is_sqlite else {}
     engine = create_engine(DATABASE_URL if DATABASE_URL else "sqlite:///./janus_forge.db",
-                           connect_args={"check_same_thread": False} if not DATABASE_URL else {})
+                           connect_args=connect_args)
     Base.metadata.create_all(bind=engine)
-    print("✅ DB tables created (Postgres)")
+    print("✅ DB tables created" + (" (SQLite)" if is_sqlite else " (Postgres)"))
 except Exception as e:
     print(f"⚠️ Postgres connection failed ({e}), falling back to SQLite for local dev")
     engine = create_engine("sqlite:///./janus_forge_local.db",
