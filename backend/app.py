@@ -99,6 +99,7 @@ class DailySessionDB(Base):
     topic = Column(String)
     messages = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
+print(f"Metadata tables registered: {len(Base.metadata.tables)}")  # Debug: Should be 3
 # Try Postgres, fallback to SQLite
 try:
     is_sqlite = DATABASE_URL and 'sqlite' in DATABASE_URL.lower()
