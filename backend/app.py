@@ -73,7 +73,15 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
     except Exception as e:
         print(f"⚠️ Gemini Config Error: {e}")
 
-# --- MODELS ---
+# --- DATABASE SETUP ---
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Define Base first
+Base = declarative_base()
+
+# --- MODELS --- (Now after Base for proper registration)
 class UserDB(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -98,16 +106,6 @@ class DailySessionDB(Base):
     messages = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-
-
-# --- DATABASE SETUP ---
-DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-# Define Base first
-Base = declarative_base()
-
 # Try Postgres, fallback to SQLite
 try:
     is_sqlite = DATABASE_URL and 'sqlite' in DATABASE_URL.lower()
@@ -122,7 +120,6 @@ except Exception as e:
                            connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     print("✅ DB tables created (SQLite)")
-
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
