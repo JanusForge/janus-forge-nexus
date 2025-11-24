@@ -103,13 +103,13 @@ class DailySessionDB(Base):
 try:
     is_sqlite = DATABASE_URL and 'sqlite' in DATABASE_URL.lower()
     connect_args = {"check_same_thread": False} if is_sqlite else {}
-    engine = create_engine(DATABASE_URL if DATABASE_URL else "sqlite:///./janus_forge.db",
+    engine = create_engine(DATABASE_URL if DATABASE_URL else "sqlite:////tmp/janus_forge.db",
                            connect_args=connect_args)
     Base.metadata.create_all(bind=engine)
     print("✅ DB tables created" + (" (SQLite)" if is_sqlite else " (Postgres)"))
 except Exception as e:
     print(f"⚠️ Postgres connection failed ({e}), falling back to SQLite for local dev")
-    engine = create_engine("sqlite:///./janus_forge_local.db",
+    engine = create_engine("sqlite:////tmp/janus_forge_local.db",
                            connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     print("✅ DB tables created (SQLite)")
@@ -216,34 +216,10 @@ class PaymentStatus(BaseModel):
 # --- ROUTES ---
 @app.post("/api/auth/signup", response_model=Token)
 def signup(user: UserCreate, db: Session = Depends(get_db)):
-    try:
-        print(f"Signup attempt for email: {user.email}")
-        print("Querying for existing user...")
-        existing = db.query(UserDB).filter(UserDB.email == user.email).first()
-        print(f"Existing user found: {existing is not None}")
-        if existing:
-            print("Raising HTTP 400: Email registered")
-            raise HTTPException(400, "Email registered")
-        print("Creating new user...")
-        hashed = get_hash(user.password)
-        print(f"Hashed password: {hashed[:10]}...")  # Truncated for logs
-        new_user = UserDB(email=user.email, hashed_password=hashed, full_name=user.full_name)
-        db.add(new_user)
-        print("Added to session")
-        db.commit()
-        print("Committed successfully")
-        db.refresh(new_user)
-        print("Refreshed user ID: ", new_user.id)
-        token = create_access_token({"sub": new_user.email})
-        print("Token created")
-        return {"access_token": token, "token_type": "bearer", "user_tier": new_user.tier, "user_name": new_user.full_name}
-    except Exception as e:
-        print(f"SIGNUP ERROR: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(500, f"Signup failed: {str(e)}")
-
-
+    if db.query(UserDB).filter(UserDB.email == user.email).first(): raise HTTPException(400, "Email registered")
+    new_user = UserDB(email=user.email, hashed_password=get_hash(user.password), full_name=user.full_name)
+    db.add(new_user); db.commit(); db.refresh(new_user)
+    return {"access_token": create_access_token({"sub": new_user.email}), "token_type": "bearer", "user_tier": new_user.tier, "user_name": new_user.full_name}
 @app.post("/api/auth/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(UserDB).filter(UserDB.email == form_data.username).first()
