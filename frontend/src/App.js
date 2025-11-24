@@ -347,18 +347,21 @@ function AppContent() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-// Usage tracker (self-contained)
-const [usage, setUsage] = useState(() => {
-  const saved = localStorage.getItem(`janusForgeUsage_${user?.email || 'anonymous'}`);
-  return saved ? JSON.parse(saved) : { sessionsCreated: 0, messagesSent: 0, currentTier: user?.tier || 'free' };
-});
-useEffect(() => {
-  if (user?.tier && user.tier !== usage.currentTier) setUsage(prev => ({ ...prev, currentTier: user.tier }));
-  localStorage.setItem(`janusForgeUsage_${user?.email || 'anonymous'}`, JSON.stringify(usage));
-}, [usage, user]);
-const canCreateSession = () => usage.sessionsCreated < (TIERS[usage.currentTier]?.sessionLimit || 0);
-const canSendMessage = () => usage.messagesSent < (TIERS[usage.currentTier]?.messageLimit || 0);
-const handleLogin = async (email, password) => {
+  // Usage tracker (self-contained)
+  const [usage, setUsage] = useState(() => {
+    const saved = localStorage.getItem(`janusForgeUsage_${user?.email || 'anonymous'}`);
+    return saved ? JSON.parse(saved) : { sessionsCreated: 0, messagesSent: 0, currentTier: user?.tier || 'free' };
+  });
+  
+  useEffect(() => {
+    if (user?.tier && user.tier !== usage.currentTier) setUsage(prev => ({ ...prev, currentTier: user.tier }));
+    localStorage.setItem(`janusForgeUsage_${user?.email || 'anonymous'}`, JSON.stringify(usage));
+  }, [usage, user]);
+  
+  const canCreateSession = () => usage.sessionsCreated < (TIERS[usage.currentTier]?.sessionLimit || 0);
+  const canSendMessage = () => usage.messagesSent < (TIERS[usage.currentTier]?.messageLimit || 0);
+
+  const handleLogin = async (email, password) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -417,7 +420,7 @@ const handleLogin = async (email, password) => {
   }
 
   return (
-    <Router>
+    <>
       <Routes>
         <Route path="/" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
         <Route path="/dashboard" element={<Dashboard onUpgradePrompt={handleUpgradePrompt} />} />
@@ -438,7 +441,7 @@ const handleLogin = async (email, password) => {
         isLogin={isLogin}
         setIsLogin={setIsLogin}
       />
-    </Router>
+    </>
   );
 }
 
@@ -446,7 +449,9 @@ const handleLogin = async (email, password) => {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <Router>
+        <AppContent />
+      </Router>
     </AuthProvider>
   );
 }
