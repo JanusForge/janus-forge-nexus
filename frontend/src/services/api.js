@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Use your Google Cloud URL
-const API_URL = process.env.REACT_APP_API_URL || 'https://janus-forge-nexus-82338337346.europe-west1.run.app';
+const API_URL = 'https://janus-forge-nexus-82338337346.europe-west1.run.app';
+// const API_URL = process.env.REACT_APP_API_URL || 'https://janus-forge-nexus-82338337346.europe-west1.run.app';
 
 const api = axios.create({
   baseURL: API_URL,
