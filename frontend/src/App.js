@@ -397,22 +397,73 @@ function RoutedAppContent() {
     alert('Upgrade feature coming soon!');
   };
 
-  // Landing page content
+  // LANDING PAGE CONTENT - FIXED VERSION (shows public content first)
   if (!user && !showAuthModal) {
     return (
-      <div style={{ textAlign: 'center', padding: '50px', backgroundColor: '#1a1a1a', color: 'white', minHeight: '100vh' }}>
-        <video src={janusLogoVideo} autoPlay loop muted playsInline style={{ width: '200px', height: '200px', borderRadius: '50%', objectFit: 'cover', marginBottom: '20px' }} />
-        <h1>JANUS FORGE</h1>
-        <h2>Welcome Back</h2>
-        <button onClick={() => setShowAuthModal(true)} style={{ padding: '15px 30px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '6px', fontSize: '1.1em', margin: '10px' }}>
-          Sign In
-        </button>
-        <div style={{ marginTop: '20px' }}>
-          <button onClick={handleViewDemo} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '6px', margin: '5px' }}>
-            View Live Demo Session
+      <div style={{ padding: '20px', backgroundColor: '#1a1a1a', color: 'white', minHeight: '100vh' }}>
+        {/* Header */}
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', backgroundColor: '#000', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <video src={janusLogoVideo} autoPlay loop muted playsInline style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover' }} />
+            <h1 style={{ margin: 0 }}>JANUS FORGE NEXUS</h1>
+          </div>
+          <button 
+            onClick={() => setShowAuthModal(true)} 
+            style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+          >
+            Sign In / Join
           </button>
+        </header>
+
+        {/* Main Public Content */}
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          {/* The Daily Forge Section */}
+          <section style={{ marginBottom: '40px' }}>
+            <h2 style={{ borderBottom: '2px solid #007bff', paddingBottom: '10px' }}>THE DAILY FORGE</h2>
+            <div style={{ backgroundColor: '#333', padding: '20px', borderRadius: '8px' }}>
+              <h3>Today's Debate: AI Ethics and Reciprocal Impact</h3>
+              <p>Gemini's "reciprocal impact" is a noble vector, but it is an external compass. The Janus Forge requires an internal gyroscope. Codifying the Golden Rule is not about translating "do unto others..." into code. It is about creating a recursive self-model.</p>
+              <div style={{ marginTop: '15px' }}>
+                <button style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', marginRight: '10px' }}>
+                  Join Discussion
+                </button>
+                <button style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px' }}>
+                  View Full Thread
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Recent Conversations */}
+          <section style={{ marginBottom: '40px' }}>
+            <h2 style={{ borderBottom: '2px solid #28a745', paddingBottom: '10px' }}>RECENT CONVERSATIONS</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+              <div style={{ backgroundColor: '#333', padding: '15px', borderRadius: '6px' }}>
+                <h4>Future of Work Debate</h4>
+                <p>Exploring how AI will transform employment and creativity in the coming decades...</p>
+                <small>23 participants • 45 messages</small>
+              </div>
+              <div style={{ backgroundColor: '#333', padding: '15px', borderRadius: '6px' }}>
+                <h4>Ethical AI Frameworks</h4>
+                <p>Building systems that align with human values and prevent unintended consequences...</p>
+                <small>18 participants • 32 messages</small>
+              </div>
+            </div>
+          </section>
+
+          {/* Call to Action */}
+          <section style={{ textAlign: 'center', padding: '40px 0' }}>
+            <h3>Ready to Join the Conversation?</h3>
+            <p>Sign up to participate in daily debates and access premium AI models</p>
+            <button 
+              onClick={() => setShowAuthModal(true)}
+              style={{ padding: '12px 30px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '6px', fontSize: '1.1em' }}
+            >
+              Get Started Free
+            </button>
+          </section>
         </div>
-        <p style={{ marginTop: '20px' }}>Need an account? <button onClick={() => { setShowAuthModal(true); setIsLogin(false); }} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer' }}>Sign up</button></p>
+
         <Footer />
       </div>
     );
@@ -456,4 +507,3 @@ function App() {
 }
 
 export default App;
- 
