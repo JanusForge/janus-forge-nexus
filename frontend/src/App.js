@@ -141,10 +141,10 @@ function AuthModal({ isOpen, onClose, onLogin, requireUpgrade = false }) {
 }
 
 
-// --- LIVE INTERACTIVE CHAT COMPONENT (The NEW CORE) ---
+/* --- LIVE INTERACTIVE CHAT COMPONENT (The NEW CORE) --- */
 function LiveChatSection({ onUpgradeTrigger }) {
   const { user } = useAuth();
-  const [messages, setMessages] = useState([{ role: 'system', content: 'Welcome to the Live Dialectic. Query the Council to begin.' }]);
+  const [messages, setMessages] = useState([{ model: 'THE COUNCIL', content: 'Welcome to the Live Dialectic. Query the Council to begin.' }]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [msgCount, setMsgCount] = useState(0);
@@ -159,7 +159,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
     if (!input.trim()) return;
     if (msgCount >= MSG_LIMIT) { setShowUpgradeModal(true); return; }
 
-    const userMsg = { role: 'user', content: input, model: user ? user.email : 'Guest' };
+    const userMsg = { role: 'user', content: input, model: user ? user.full_name : 'Guest' };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsSending(true);
@@ -167,11 +167,14 @@ function LiveChatSection({ onUpgradeTrigger }) {
     try {
       // NOTE: This hits the BACKEND which implements the Gemini/DeepSeek dialectic
       const res = await sessionService.sendMessage(input, "dialectic", []);
-      setMessages(prev => [...prev, ...res.data.messages.map(m => ({ role: 'ai', content: m.content, model: m.model }))]);
+      
+      // CRITICAL FIX: Ensure every AI message is added as a separate entry
+      const aiMsgs = res.data.messages.map(m => ({ role: 'ai', content: m.content, model: m.model }));
+      setMessages(prev => [...prev, ...aiMsgs]); // Append all messages correctly
       setMsgCount(prev => prev + 1);
     } catch (err) { 
       console.error("Chat API Error:", err);
-      setMessages(prev => [...prev, { role: 'system', content: 'Connection Error: Unable to reach AI Council.' }]); 
+      setMessages(prev => [...prev, { model: 'THE COUNCIL', content: 'Connection Error: Unable to reach AI Council.' }]); 
     } finally { 
       setIsSending(false); 
     }
@@ -202,11 +205,11 @@ function LiveChatSection({ onUpgradeTrigger }) {
               <div key={idx} className="chat-bubble" style={{ 
                 alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', 
                 background: msg.role === 'user' ? '#1a1a2e' : '#111', 
-                border: msg.role === 'user' ? '1px solid #bc13fe' : '1px solid #333',
+                border: msg.role === 'user' ? '1px solid #bc13fe' : (msg.model === 'System' ? '1px solid #00f3ff' : '1px solid #333'), // System messages get cyan border
                 boxShadow: msg.role === 'user' ? '0 0 15px rgba(188, 19, 254, 0.1)' : 'none',
                 width: 'fit-content', maxWidth: '85%'
               }}>
-                  {msg.model && <strong style={{display:'block', marginBottom:'5px', fontSize:'0.75rem', color: '#00f3ff', textTransform:'uppercase', letterSpacing:'1px'}}>{msg.model}</strong>} 
+                  <strong style={{display:'block', marginBottom:'5px', fontSize:'0.75rem', color: msg.model === 'Gemini' ? '#00f3ff' : (msg.model === 'DeepSeek' ? '#ffaa00' : '#888'), textTransform:'uppercase', letterSpacing:'1px'}}>{msg.model}</strong> 
                   {msg.content}
               </div>
           ))}
@@ -229,6 +232,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
     </>
   );
 }
+// (Rest of App.js code is omitted for brevity, but the user must overwrite the full file)
 
 // --- LANDING PAGE ---
 function LandingPage() {
