@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-// Use your Google Cloud URL
-const API_URL = 'https://janus-forge-nexus-82338337346.europe-west1.run.app';
-// const API_URL = process.env.REACT_APP_API_URL || 'https://janus-forge-nexus-82338337346.europe-west1.run.app';
+// --- CONFIGURATION ---
+// We leave this empty so it uses the "proxy" value defined in package.json.
+// This ensures requests go to your Backend (Port 8000) correctly.
+const API_URL = ""; 
 
 const api = axios.create({
   baseURL: API_URL,
@@ -11,54 +12,70 @@ const api = axios.create({
   },
 });
 
-// 1. ATTACH TOKEN (Outgoing)
-api.interceptors.request.use((config) => {
-  const userStr = localStorage.getItem('janusForgeUser');
-  if (userStr) {
-    const user = JSON.parse(userStr);
-    if (user.access_token) {
-      config.headers.Authorization = `Bearer ${user.access_token}`;
-    }
-  }
-  return config;
-});
+// --- INTERCEPTORS (The Security Guards) ---
 
-// 2. HANDLE EXPIRED TOKENS (Incoming)
+// 1. OUTGOING: Attach the Token to every request if we have one
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('janus_token'); // Matches AuthContext key
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// 2. INCOMING: Handle Expired Sessions (401 Errors)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('janusForgeUser');
-      window.location.reload();
+      // Token is dead. Clear storage and kick to login screen.
+      localStorage.removeItem('janus_token');
+      localStorage.removeItem('janus_user');
+      window.location.href = '/';
     }
     return Promise.reject(error);
   }
 );
 
+// --- API SERVICES ---
+
 export const authService = {
-  // FIXED: Use JSON format with correct parameter names
+  // FIX #1: Added '/v1' to match main.py
+  // FIX #2: Changed 'email' to 'username' to satisfy FastAPI requirements
   login: async (email, password) => {
-    return api.post('/api/auth/login', {
-      username: email,  // FastAPI OAuth2 expects 'username' field
-      password: password
+    return api.post('/api/v1/auth/login', { 
+      username: email, 
+      password: password 
     });
   },
   
   signup: async (email, password, name) => {
-    return api.post('/api/auth/signup', {
-      email,
-      password,
-      full_name: name
+    return api.post('/api/v1/auth/signup', { 
+      email, 
+      password, 
+      full_name: name 
     });
   }
 };
 
 export const sessionService = {
-  broadcast: (payload) => api.post('/api/v1/broadcast', payload),
-  getLatestDaily: () => api.get('/api/v1/daily/latest'),
-  generateDaily: () => api.post('/api/v1/daily/generate'),
+  // Dashboard Data
   getHistory: () => api.get('/api/v1/history'),
-  getSession: (id) => api.get(`/api/v1/session/${id}`),
+  getLatestDaily: () => api.get('/api/v1/daily/latest'),
+  
+  // Actions
+  generateDaily: () => api.post('/api/v1/daily/generate'),
+  createCheckout: (tier) => api.post('/api/v1/payments/create-checkout', { tier }),
+  
+  // The Chat Brain
+  sendMessage: (message, mode, history) => api.post('/api/v1/chat', { message, mode, history })
 };
+
+// --- EXPORTS ---
+// We export 'login' directly just in case AuthContext imports it specifically
+export const login = authService.login;
 
 export default api;

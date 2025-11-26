@@ -1,86 +1,63 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { authService } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('janusForgeUser');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [authError, setAuthError] = useState('');
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // Check if user is already logged in from a previous session
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('janusForgeUser', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('janusForgeUser');
+    const savedUser = localStorage.getItem('janus_user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
     }
-  }, [user]);
+    setLoading(false);
+  }, []);
 
   const login = async (email, password) => {
-    setIsLoading(true);
-    setAuthError('');
     try {
-      const response = await authService.login(email, password);
-      // We store the token AND the user details
-      const userData = {
-        email: email,
-        name: response.data.user_name,
-        tier: response.data.user_tier,
-        access_token: response.data.access_token
-      };
-      setUser(userData);
-      return { success: true };
-    } catch (error) {
-      console.error("Login error:", error);
-      const msg = error.response?.data?.detail || 'Login failed';
-      setAuthError(msg);
-      return { success: false, error: msg };
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      // 1. Send credentials to our new Backend Doorman
+      const response = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password: password }), // sending 'username' to match standard OAuth logic
+      });
 
-  const signup = async (email, password, name) => {
-    setIsLoading(true);
-    setAuthError('');
-    try {
-      const response = await authService.signup(email, password, name);
-      const userData = {
-        email: email,
-        name: response.data.user_name,
-        tier: response.data.user_tier,
-        access_token: response.data.access_token
-      };
-      setUser(userData);
-      return { success: true };
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Login failed');
+      }
+
+      // 2. If success, save the user and let them in!
+      console.log("Login Successful:", data);
+      setUser(data.user);
+      localStorage.setItem('janus_token', data.access_token);
+      localStorage.setItem('janus_user', JSON.stringify(data.user));
+      
+      return true;
     } catch (error) {
-      console.error("Signup error:", error);
-      const msg = error.response?.data?.detail || 'Signup failed';
-      setAuthError(msg);
-      return { success: false, error: msg };
-    } finally {
-      setIsLoading(false);
+      console.error("Login Error:", error);
+      alert("Connection Error: " + error.message); // Alert so we know if it fails!
+      throw error;
     }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('janusForgeUser');
+    localStorage.removeItem('janus_token');
+    localStorage.removeItem('janus_user');
   };
 
-  const upgradeAccount = (newTier) => {
-    // In a real app, you'd call an API to update the DB here too
-    if (user) {
-      setUser(prev => ({ ...prev, tier: newTier }));
-    }
+  const signup = async (email, password, fullName) => {
+    // For mock purposes, signup is just login
+    return login(email, password);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, authError, login, signup, logout, upgradeAccount }}>
-      {children}
+    <AuthContext.Provider value={{ user, login, logout, signup, loading }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
