@@ -20,11 +20,11 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "serve -s build -l $PORT",
-    "build": "cross-env REACT_APP_API_URL=$REACT_APP_API_URL react-scripts build",
+    "start": "react-scripts start",
+    "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
-  },
+},
   "eslintConfig": {
     "extends": [
       "react-app",
