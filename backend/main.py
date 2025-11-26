@@ -19,7 +19,7 @@ from anthropic import AsyncAnthropic
 # --- DATABASE IMPORTS ---
 from database import init_db, get_db, User, verify_password, get_password_hash, SessionLocal
 
-# --- GLOBAL STATE ---
+# --- GLOBAL STATE & EXECUTOR ---
 load_dotenv()
 clients = {} 
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
@@ -27,40 +27,55 @@ print("🚀 Starting Janus Forge Nexus Brain...")
 
 app = FastAPI(title="Janus Forge Nexus API")
 
-# --- INITIALIZATION HOOKS (CRITICAL FIX: ONLY ASYNC CLIENTS REMAIN) ---
-
+# --- DATABASE SETUP (CRITICAL FIX: MOVED TO A THREAD) ---
 @app.on_event("startup")
-async def startup_event():
-    """Initializes only the non-blocking AI clients after the server starts."""
+async def startup_db_and_admin():
+    """Initializes the synchronous database and admin user after the server is up."""
+    def sync_setup():
+        init_db()
+        db = SessionLocal()
+        try:
+            if not db.query(User).filter(User.email == "admin@janus.com").first():
+                print("🆕 Creating Admin User: admin@janus.com / admin123")
+                admin_user = User(email="admin@janus.com", full_name="Janus Admin", hashed_password=get_password_hash("admin123"), tier="visionary")
+                db.add(admin_user)
+                db.commit()
+            print("✅ Database Setup Complete.")
+        except Exception as e:
+            print(f"❌ DB Startup Error: {e}")
+        finally:
+            db.close()
+            
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(executor, sync_setup)
+
+
+# --- AI CLIENT SETUP (CRITICAL FIX: LAZY LOADING) ---
+def init_ai_clients():
+    """Initializes clients synchronously when first called."""
     global clients
     
+    # Check if any client is already initialized
+    if clients: return
+    
     # 1. Setup Gemini (Synchronous API client init)
-    # MUST be run in a separate thread/executor
-    def init_gemini():
-        GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-        if GEMINI_KEY:
-            genai.configure(api_key=GEMINI_KEY)
-            clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash') 
-            print("✅ Gemini Configured")
-
-    # Run the synchronous Gemini setup without blocking server startup
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(executor, init_gemini)
-
+    GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+    if GEMINI_KEY:
+        genai.configure(api_key=GEMINI_KEY)
+        clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash') 
+        print("✅ Gemini Configured")
+        
     # 2. Setup DeepSeek (Asynchronous client initialization)
     if os.getenv("DEEPSEEK_API_KEY"):
         clients['deepseek'] = AsyncOpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/v1")
         print("✅ DeepSeek Configured")
 
-# --- CONFIGURATION (Unchanged) ---
-origins = ["*"] 
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# Setup Stripe
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
-
-# --- HELPER: Universal AI Translator (Unchanged) ---
+# --- HELPER: Universal AI Translator (Updated to check initialization) ---
 async def ask_model(provider: str, prompt: str, system_role: str = ""):
+    # CRITICAL: Ensure clients are initialized before calling (Lazy Loading)
+    init_ai_clients() 
+    
     try:
         if provider == 'gemini' and 'gemini' in clients:
             loop = asyncio.get_event_loop()
@@ -80,9 +95,13 @@ async def ask_model(provider: str, prompt: str, system_role: str = ""):
         print(f"❌ AI Error ({provider}): {e}")
         return f"Neural Link Failed ({provider})."
 
+
 # --- CHAT ROUTE (THE CRITICAL FIX) ---
 @app.post("/api/v1/chat")
 async def chat_endpoint(request: ChatRequest):
+    # This call now triggers the lazy initialization without blocking server startup
+    init_ai_clients() 
+    
     user_input = request.message
     
     if 'gemini' not in clients or 'deepseek' not in clients:
