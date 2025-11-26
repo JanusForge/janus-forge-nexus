@@ -1,12 +1,21 @@
-FROM python:3.11-slim
+# Use a slim Python image for small size
+FROM python:3.12-slim
 
+# Set the working directory
 WORKDIR /app
 
+# Copy dependency files
 COPY requirements.txt .
+
+# Install dependencies needed for our project (including all AI libraries)
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py .
+# Copy all local code into the container
+COPY . .
 
-ENV PYTHONUNBUFFERED=1
+# Set environment variable for FastAPI/Uvicorn to listen on 0.0.0.0
+ENV PORT 8000
+ENV HOST 0.0.0.0
 
-CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+# Command to run the service
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
