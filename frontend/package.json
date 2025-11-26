@@ -15,11 +15,12 @@
     "react-joyride": "^2.9.3",
     "react-router-dom": "^6.30.2",
     "react-scripts": "5.0.1",
+    "serve": "^14.2.5",
     "socket.io-client": "^4.7.5",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "serve -s build -l $PORT",
     "build": "cross-env REACT_APP_API_URL=$REACT_APP_API_URL react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
