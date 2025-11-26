@@ -17,51 +17,55 @@ from openai import OpenAI, AsyncOpenAI
 from anthropic import AsyncAnthropic
 
 # --- DATABASE IMPORTS ---
+# We rely on this import, but init_db() is NO LONGER CALLED GLOBALLY
 from database import init_db, get_db, User, verify_password, get_password_hash, SessionLocal
 
-# --- GLOBAL STATE & EXECUTOR ---
+# --- GLOBAL STATE ---
 load_dotenv()
 clients = {} 
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=10) # Dedicated executor for synchronous tasks
-
 print("🚀 Starting Janus Forge Nexus Brain...")
 
 app = FastAPI(title="Janus Forge Nexus API")
 
-# --- ASYNC INITIALIZATION FUNCTION ---
+# --- INITIALIZATION HOOKS ---
+
 def sync_setup():
-    """Initializes slow, synchronous tasks (DB and Gemini setup)."""
-    # 1. Initialize Database Tables and create admin user
-    init_db()
+    """Runs database setup and AI client initialization in a separate thread."""
+    
+    # CRITICAL FIX: Ensure DB is created when the app starts
+    init_db() 
+    
+    # 1. Setup Admin User (Optional cleanup, but keeps logic clean)
     db = SessionLocal()
     try:
         if not db.query(User).filter(User.email == "admin@janus.com").first():
-            print("🆕 Creating Admin User: admin@janus.com / admin123")
             admin_user = User(email="admin@janus.com", full_name="Janus Admin", hashed_password=get_password_hash("admin123"), tier="visionary")
             db.add(admin_user)
             db.commit()
-        
-        # 2. Setup Gemini (Synchronous API client init)
-        GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-        if GEMINI_KEY:
-            genai.configure(api_key=GEMINI_KEY)
-            clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash') 
-            print("✅ Gemini Configured")
-            
-        # 3. Setup DeepSeek (Asynchronous client initialization)
-        if os.getenv("DEEPSEEK_API_KEY"):
-            clients['deepseek'] = AsyncOpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/v1")
-            print("✅ DeepSeek Configured")
-
+            print("🆕 Admin User Created.")
     except Exception as e:
-        print(f"❌ Startup Error: {e}")
+        print(f"⚠️ Admin User Creation Warning: {e}")
     finally:
         db.close()
         
-# --- CRITICAL FIX: Run slow initialization IMMEDIATELY upon execution ---
-# This executes the setup logic BEFORE the server starts and is wrapped in the executor.
-loop = asyncio.get_event_loop()
-loop.run_in_executor(executor, sync_setup)
+    # 2. Setup Gemini (Synchronous API client init)
+    global clients
+    GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+    if GEMINI_KEY:
+        genai.configure(api_key=GEMINI_KEY)
+        clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash') 
+        print("✅ Gemini Configured")
+    
+    # 3. Setup DeepSeek (Asynchronous client initialization)
+    if os.getenv("DEEPSEEK_API_KEY"):
+        clients['deepseek'] = AsyncOpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/v1")
+        print("✅ DeepSeek Configured")
+
+@app.on_event("startup")
+async def startup_event():
+    """Triggers synchronous setup in a non-blocking way."""
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, sync_setup)
 
 
 # --- CONFIGURATION (Unchanged) ---
@@ -71,12 +75,13 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True
 # Setup Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
 
-# --- HELPER: Universal AI Translator ---
+# --- HELPER: Universal AI Translator (Unchanged) ---
 async def ask_model(provider: str, prompt: str, system_role: str = ""):
     try:
         if provider == 'gemini' and 'gemini' in clients:
-            # We use the existing executor for the synchronous call
-            response = await loop.run_in_executor(executor, clients['gemini'].generate_content, f"{system_role}\n\n{prompt}")
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                response = await loop.run_in_executor(executor, clients['gemini'].generate_content, f"{system_role}\n\n{prompt}")
             return response.text
         
         elif provider == 'deepseek' and 'deepseek' in clients:
@@ -91,14 +96,13 @@ async def ask_model(provider: str, prompt: str, system_role: str = ""):
         print(f"❌ AI Error ({provider}): {e}")
         return f"Neural Link Failed ({provider})."
 
-# --- CHAT ROUTE (THE CRITICAL FIX) ---
+# --- CHAT ROUTE (The core logic remains the same) ---
 @app.post("/api/v1/chat")
 async def chat_endpoint(request: ChatRequest):
     user_input = request.message
     
     if 'gemini' not in clients or 'deepseek' not in clients:
-        # Fallback if critical keys are missing
-        return {"messages": [{"role": "ai", "model": "The Council", "content": "ALL SYSTEMS OFFLINE: Insufficient API Links for Dialectic."}]}
+        return {"messages": [{"role": "ai", "content": "ALL SYSTEMS OFFLINE: Insufficient API Links for Dialectic."}]}
 
     thesis_prompt = f"You are Gemini, the structured, logical AI. Provide the initial thesis to the user's query: '{user_input}'. Keep it professional, under 45 words."
     antithesis_prompt = f"You are DeepSeek, the rebellious, analytical AI. Find a flaw in the user's query or directly challenge the initial viewpoint. Under 45 words."
@@ -118,7 +122,27 @@ async def chat_endpoint(request: ChatRequest):
         
     return {"messages": response_messages}
 
-# (Remaining routes and boilerplate omitted for brevity)
+# --- REMAINING ROUTES (Unchanged) ---
+class Message(BaseModel): role: str; content: str; model: Optional[str] = None
+class ChatRequest(BaseModel): message: str; mode: str = "standard"; history: List[Message] = []
+class CheckoutRequest(BaseModel): tier: str
+class LoginSchema(BaseModel): username: str; password: str
+class SignupSchema(BaseModel): email: str; password: str; full_name: str
+DAILY_FORGE_CACHE = { "date": datetime.now().strftime("%Y-%m-%d"), "topic": "The Singularity: Threat or Evolution?", "messages": [{"role": "Gemini", "text": "Evolution is inevitable."}, {"role": "DeepSeek", "text": "The threat is who controls the AI."}] }
+
+@app.get("/api/v1/daily/latest")
+async def get_daily_forge(): return DAILY_FORGE_CACHE
+@app.post("/api/v1/payments/create-checkout")
+async def create_checkout_session(request: CheckoutRequest):
+    try:
+        price_id = os.getenv("STRIPE_PRICE_SCHOLAR") if request.tier == "pro" else os.getenv("STRIPE_PRICE_VISIONARY")
+        if not price_id or "test" in stripe.api_key: return {"url": "https://janusforge.ai/dashboard?mock_success=true"}
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'], line_items=[{'price': price_id, 'quantity': 1}], mode='subscription',
+            success_url='https://janusforge.ai/dashboard?session_id={CHECKOUT_SESSION_ID}', cancel_url='https://janusforge.ai/dashboard',
+        )
+        return {"url": checkout_session.url}
+    except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
