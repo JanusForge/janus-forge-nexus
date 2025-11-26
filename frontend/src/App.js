@@ -10,8 +10,8 @@ import './App.css';
 import janusLogoVideo from './janus-logo.mp4'; 
 
 // --- CONFIG ---
-const STRIPE_KEY = process.env.REACT_APP_STRIPE_PK || 'pk_test_placeholder';
-const stripePromise = loadStripe(STRIPE_KEY); 
+// Use the variable directly when loading Stripe (Vercel cannot duplicate this)
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PK || 'pk_test_placeholder');
 
 // --- GLOBAL STYLES (Unchanged) ---
 const GlobalStyles = () => (
@@ -76,7 +76,7 @@ const GlobalStyles = () => (
   </style>
 );
 
-const STRIPE_KEY = process.env.REACT_APP_STRIPE_PK || 'pk_test_placeholder';
+
 
 // --- REACTOR LOGO (Unchanged) ---
 function ReactorLogo({ size = "150px", pulse = true }) {
