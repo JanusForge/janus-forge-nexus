@@ -165,16 +165,24 @@ function LiveChatSection({ onUpgradeTrigger }) {
     setIsSending(true);
     
     try {
-      // NOTE: This hits the BACKEND which implements the Gemini/DeepSeek dialectic
+      // NOTE: This hits the live GCP backend for the dialectic response
       const res = await sessionService.sendMessage(input, "dialectic", []);
       
-      // CRITICAL FIX: Ensure every AI message is added as a separate entry
-      const aiMsgs = res.data.messages.map(m => ({ role: 'ai', content: m.content, model: m.model }));
-      setMessages(prev => [...prev, ...aiMsgs]); // Append all messages correctly
-      setMsgCount(prev => prev + 1);
+      if (res.data && res.data.messages && res.data.messages.length > 0) {
+        
+        // CRITICAL FIX: Explicitly add all responses from the backend array
+        const aiMsgs = res.data.messages.map(m => ({ 
+          role: 'ai', 
+          content: m.content, 
+          model: m.model || 'Council' // Fallback model name
+        }));
+
+        setMessages(prev => [...prev, ...aiMsgs]); // Append all messages correctly
+        setMsgCount(prev => prev + 1);
+      }
     } catch (err) { 
       console.error("Chat API Error:", err);
-      setMessages(prev => [...prev, { model: 'THE COUNCIL', content: 'Connection Error: Unable to reach AI Council.' }]); 
+      setMessages(prev => [...prev, { model: 'System', content: 'Connection Error: Unable to reach AI Council.' }]); 
     } finally { 
       setIsSending(false); 
     }
