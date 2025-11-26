@@ -53,9 +53,10 @@ if os.getenv("GEMINI_API_KEY"):
 if os.getenv("DEEPSEEK_API_KEY"):
     clients['deepseek'] = AsyncOpenAI(
         api_key=os.getenv("DEEPSEEK_API_KEY"),
-        # CRITICAL FIX: Base URL must include /v1 for compatibility
+        # CRITICAL FIX: Ensure base URL includes /v1 for compatibility
         base_url="https://api.deepseek.com/v1" 
     )
+    print("✅ DeepSeek Configured")
 
 # --- HELPER: Universal AI Translator (Unchanged) ---
 async def ask_model(provider: str, prompt: str, system_role: str = ""):
