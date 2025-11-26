@@ -208,6 +208,7 @@ async def create_checkout_session(request: CheckoutRequest):
 # --- At the very bottom of main.py ---
 if __name__ == "__main__":
     import uvicorn
-    # Local development default to 8000 if no PORT is set
+    # Use the PORT provided by the environment, or default to 8000 for local testing
     port = int(os.environ.get("PORT", 8000))
+    # We call uvicorn with the port variable set by the OS
     uvicorn.run(app, host="0.0.0.0", port=port)
