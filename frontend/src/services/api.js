@@ -1,18 +1,16 @@
 import axios from 'axios';
 
 // 1. CONFIGURATION: Reads the environment variable set in Vercel/Cloud Run
-// Defaults to empty string if not set, which leads to the 404 issue we are solving
 const API_URL = process.env.REACT_APP_API_URL || ""; 
 
 const api = axios.create({
-  // THIS IS THE CRITICAL LINE: It uses the public Cloud Run URL when deployed
   baseURL: API_URL, 
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// 2. INTERCEPTORS (Unchanged but needed for context)
+// 2. INTERCEPTORS (Security and Token Handling)
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('janus_token');
@@ -32,11 +30,12 @@ api.interceptors.response.use(
       localStorage.removeItem('janus_user');
       window.location.href = '/';
     }
+    // FIX: Manually inserting semicolon to satisfy Vercel's strict compiler
     return Promise.reject(error);
   }
 );
 
-// 3. API SERVICES (Unchanged)
+// 3. API SERVICES
 export const authService = {
   login: async (email, password) => {
     return api.post('/api/v1/auth/login', { username: email, password: password });
@@ -55,4 +54,4 @@ export const sessionService = {
 };
 
 export const login = authService.login;
-export default api;cd janus-forge-
+export default api;
