@@ -77,7 +77,6 @@ const GlobalStyles = () => (
 );
 
 const STRIPE_KEY = process.env.REACT_APP_STRIPE_PK || 'pk_test_placeholder';
-const stripePromise = loadStripe(STRIPE_KEY); 
 
 // --- REACTOR LOGO (Unchanged) ---
 function ReactorLogo({ size = "150px", pulse = true }) {
