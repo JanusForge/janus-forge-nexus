@@ -17,56 +17,40 @@ from openai import OpenAI, AsyncOpenAI
 from anthropic import AsyncAnthropic
 
 # --- DATABASE IMPORTS ---
-# We rely on this import, but init_db() is NO LONGER CALLED GLOBALLY
 from database import init_db, get_db, User, verify_password, get_password_hash, SessionLocal
 
 # --- GLOBAL STATE ---
 load_dotenv()
 clients = {} 
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 print("🚀 Starting Janus Forge Nexus Brain...")
 
 app = FastAPI(title="Janus Forge Nexus API")
 
-# --- INITIALIZATION HOOKS ---
-
-def sync_setup():
-    """Runs database setup and AI client initialization in a separate thread."""
-    
-    # CRITICAL FIX: Ensure DB is created when the app starts
-    init_db() 
-    
-    # 1. Setup Admin User (Optional cleanup, but keeps logic clean)
-    db = SessionLocal()
-    try:
-        if not db.query(User).filter(User.email == "admin@janus.com").first():
-            admin_user = User(email="admin@janus.com", full_name="Janus Admin", hashed_password=get_password_hash("admin123"), tier="visionary")
-            db.add(admin_user)
-            db.commit()
-            print("🆕 Admin User Created.")
-    except Exception as e:
-        print(f"⚠️ Admin User Creation Warning: {e}")
-    finally:
-        db.close()
-        
-    # 2. Setup Gemini (Synchronous API client init)
-    global clients
-    GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-    if GEMINI_KEY:
-        genai.configure(api_key=GEMINI_KEY)
-        clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash') 
-        print("✅ Gemini Configured")
-    
-    # 3. Setup DeepSeek (Asynchronous client initialization)
-    if os.getenv("DEEPSEEK_API_KEY"):
-        clients['deepseek'] = AsyncOpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/v1")
-        print("✅ DeepSeek Configured")
+# --- INITIALIZATION HOOKS (CRITICAL FIX: ONLY ASYNC CLIENTS REMAIN) ---
 
 @app.on_event("startup")
 async def startup_event():
-    """Triggers synchronous setup in a non-blocking way."""
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, sync_setup)
+    """Initializes only the non-blocking AI clients after the server starts."""
+    global clients
+    
+    # 1. Setup Gemini (Synchronous API client init)
+    # MUST be run in a separate thread/executor
+    def init_gemini():
+        GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+        if GEMINI_KEY:
+            genai.configure(api_key=GEMINI_KEY)
+            clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash') 
+            print("✅ Gemini Configured")
 
+    # Run the synchronous Gemini setup without blocking server startup
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(executor, init_gemini)
+
+    # 2. Setup DeepSeek (Asynchronous client initialization)
+    if os.getenv("DEEPSEEK_API_KEY"):
+        clients['deepseek'] = AsyncOpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/v1")
+        print("✅ DeepSeek Configured")
 
 # --- CONFIGURATION (Unchanged) ---
 origins = ["*"] 
@@ -96,13 +80,13 @@ async def ask_model(provider: str, prompt: str, system_role: str = ""):
         print(f"❌ AI Error ({provider}): {e}")
         return f"Neural Link Failed ({provider})."
 
-# --- CHAT ROUTE (The core logic remains the same) ---
+# --- CHAT ROUTE (THE CRITICAL FIX) ---
 @app.post("/api/v1/chat")
 async def chat_endpoint(request: ChatRequest):
     user_input = request.message
     
     if 'gemini' not in clients or 'deepseek' not in clients:
-        return {"messages": [{"role": "ai", "content": "ALL SYSTEMS OFFLINE: Insufficient API Links for Dialectic."}]}
+        return {"messages": [{"role": "ai", "model": "The Council", "content": "ALL SYSTEMS OFFLINE: Insufficient API Links for Dialectic."}]}
 
     thesis_prompt = f"You are Gemini, the structured, logical AI. Provide the initial thesis to the user's query: '{user_input}'. Keep it professional, under 45 words."
     antithesis_prompt = f"You are DeepSeek, the rebellious, analytical AI. Find a flaw in the user's query or directly challenge the initial viewpoint. Under 45 words."
