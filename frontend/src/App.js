@@ -10,7 +10,7 @@ import './App.css';
 import janusLogoVideo from './janus-logo.mp4'; 
 
 // --- CONFIG ---
-// Use the variable directly when loading Stripe (Vercel cannot duplicate this)
+// NOTE: We eliminate the STRIPE_KEY variable to prevent the "Identifier already declared" error.
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PK || 'pk_test_placeholder');
 
 // --- GLOBAL STYLES (Unchanged) ---
@@ -179,12 +179,9 @@ function LiveChatSection({ onUpgradeTrigger }) {
 
   const handleUnlockClick = () => {
     if (!user) {
-      // If not logged in, trigger the main login/signup flow
-      onUpgradeTrigger(true); 
+      onUpgradeTrigger(true); // Trigger login modal
     } else {
-      // If logged in, send them directly to the payment flow (Scholar tier default)
       alert("Redirecting to Secure Payment Gateway for Scholar Access...");
-      // Add Stripe logic here later when we integrate payment triggers from the frontend
     }
   };
 
@@ -228,7 +225,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
       </div>
       
       {/* Upgrade Modal Triggered by Limit */}
-      <AuthModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onLogin={onUpgradeTrigger} requireUpgrade={true} />
+      <AuthModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onLogin={handleUnlockClick} requireUpgrade={true} />
     </>
   );
 }
@@ -241,18 +238,28 @@ function LandingPage() {
   
   const handleLoginSignup = async (email, password, isSignup, fullName) => {
     let success = false;
-    if (isSignup) {
-      await api.post('/api/v1/auth/signup', { email, password, full_name: fullName });
-    }
-    const result = await login(email, password);
-    if (result) {
-      success = true;
-      setShowAuth(false);
-      navigate('/dashboard'); 
+    try {
+      if (isSignup) {
+        await api.post('/api/v1/auth/signup', { email, password, full_name: fullName });
+      }
+      const result = await login(email, password);
+      if (result) {
+        success = true;
+        setShowAuth(false);
+      }
+    } catch (err) {
+      alert("Authentication Failed: " + err.message);
     }
     return success;
   };
   
+  // Logic to show Dashboard if logged in, otherwise Landing Page
+  useEffect(() => {
+    if (user && window.location.pathname === '/') {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <div className="cyber-grid"></div>
@@ -277,6 +284,7 @@ function LandingPage() {
 
         {/* LIVE INTERACTIVE CHAT EMBED */}
         <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px', boxSizing: 'border-box' }}>
+            {/* The Login Modal trigger is passed through the onUpgradeTrigger prop */}
             <LiveChatSection onUpgradeTrigger={() => setShowAuth(true)} />
         </section>
 
@@ -286,16 +294,18 @@ function LandingPage() {
       <footer style={{ borderTop: '1px solid #222', padding: '40px 20px', textAlign: 'center', fontSize: '0.75rem', color: '#555', background: '#020202', width: '100%', boxSizing: 'border-box' }}>
         <p style={{ marginBottom: '8px', fontWeight: 'bold', color: '#777' }}>&copy; 2025 Janus Forge Accelerators, LLC.</p>
         <p style={{ marginBottom: '20px' }}>Janus Forge Nexus™ is a property of Janus Forge Accelerators, LLC, a Kentucky Limited Liability Company.</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '15px' }}>
+          <span style={{ cursor: 'pointer', textDecoration: 'none', color: '#444', transition: 'color 0.2s' }} className="footer-link">Privacy Policy</span>
+          <span style={{ cursor: 'pointer', textDecoration: 'none', color: '#444', transition: 'color 0.2s' }} className="footer-link">Terms of Service</span>
+          <span style={{ cursor: 'pointer', textDecoration: 'none', color: '#444', transition: 'color 0.2s' }} className="footer-link">Legal Disclaimer</span>
+        </div>
       </footer>
-      
-      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onLogin={handleLoginSignup} requireUpgrade={false} />
     </div>
   );
 }
 
 // --- DASHBOARD (Command Center) ---
 function Dashboard() {
-  // Logic remains the same: Renders the Command Center
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   
@@ -317,7 +327,6 @@ function Dashboard() {
       <main style={{ flex: 1, padding: '40px', maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
         <h2 style={{ fontSize: '2rem', marginBottom: '40px', color: '#fff' }}>SYSTEM STATUS: <span style={{ color: '#00f3ff' }}>OPTIMAL</span></h2>
         
-        {/* Simplified Dashboard Content */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
           <div className="glass-panel" style={{ padding: '40px', borderRadius: '20px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '300px' }}>
             <h3 style={{ fontSize: '1.5rem', marginBottom: '20px' }}>Initiate New Dialectic</h3>
