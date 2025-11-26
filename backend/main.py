@@ -26,10 +26,10 @@ print("🚀 Starting Janus Forge Nexus Brain...")
 
 app = FastAPI(title="Janus Forge Nexus API")
 
-# --- ASYNC INITIALIZATION HOOK (CRITICAL FIX) ---
+# --- LIFESPAN HOOKS (CRITICAL FIX FOR CLOUD RUN STARTUP) ---
 
 def sync_setup():
-    """Runs synchronous tasks (DB/Gemini) in a separate thread during startup."""
+    """Runs synchronous tasks (DB/Gemini initialization) in a separate thread."""
     # 1. Initialize Database Tables and create admin user
     init_db()
     db = SessionLocal()
@@ -47,7 +47,7 @@ def sync_setup():
             clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash') 
             print("✅ Gemini Configured")
             
-        # 3. Setup DeepSeek (Synchronous part of initialization, though client is async)
+        # 3. Setup DeepSeek (Asynchronous client initialization)
         if os.getenv("DEEPSEEK_API_KEY"):
             clients['deepseek'] = AsyncOpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/v1")
             print("✅ DeepSeek Configured")
@@ -59,7 +59,7 @@ def sync_setup():
         
 @app.on_event("startup")
 async def startup_event():
-    """Triggers synchronous setup in a non-blocking way."""
+    """Triggers synchronous setup in a non-blocking way using an executor."""
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, sync_setup)
 
@@ -74,11 +74,14 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
 # --- HELPER: Universal AI Translator (Unchanged) ---
 async def ask_model(provider: str, prompt: str, system_role: str = ""):
     try:
+        # GEMINI (Synchronous SDK Call MUST be run in a separate thread/executor)
         if provider == 'gemini' and 'gemini' in clients:
             loop = asyncio.get_event_loop()
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 response = await loop.run_in_executor(executor, clients['gemini'].generate_content, f"{system_role}\n\n{prompt}")
             return response.text
+        
+        # DEEPSEEK (Asynchronous SDK Call)
         elif provider == 'deepseek' and 'deepseek' in clients:
             client = clients[provider]
             completion = await client.chat.completions.create(
@@ -91,12 +94,13 @@ async def ask_model(provider: str, prompt: str, system_role: str = ""):
         print(f"❌ AI Error ({provider}): {e}")
         return f"Neural Link Failed ({provider})."
 
-# --- ROUTES (Unchanged) ---
+# --- CHAT ROUTE (THE CRITICAL FIX) ---
 @app.post("/api/v1/chat")
 async def chat_endpoint(request: ChatRequest):
     user_input = request.message
     
     if 'gemini' not in clients or 'deepseek' not in clients:
+        # Fallback if critical keys are missing
         return {"messages": [{"role": "ai", "model": "The Council", "content": "ALL SYSTEMS OFFLINE: Insufficient API Links for Dialectic."}]}
 
     thesis_prompt = f"You are Gemini, the structured, logical AI. Provide the initial thesis to the user's query: '{user_input}'. Keep it professional, under 45 words."
@@ -116,4 +120,30 @@ async def chat_endpoint(request: ChatRequest):
     ]
         
     return {"messages": response_messages}
-# (Remaining boilerplate routes omitted for brevity)
+
+# --- REMAINING ROUTES (Unchanged) ---
+class Message(BaseModel): role: str; content: str; model: Optional[str] = None
+class ChatRequest(BaseModel): message: str; mode: str = "standard"; history: List[Message] = []
+class CheckoutRequest(BaseModel): tier: str
+class LoginSchema(BaseModel): username: str; password: str
+class SignupSchema(BaseModel): email: str; password: str; full_name: str
+DAILY_FORGE_CACHE = { "date": datetime.now().strftime("%Y-%m-%d"), "topic": "The Singularity: Threat or Evolution?", "messages": [{"role": "Gemini", "text": "Evolution is inevitable."}, {"role": "DeepSeek", "text": "The threat is who controls the AI."}] }
+
+@app.get("/api/v1/daily/latest")
+async def get_daily_forge(): return DAILY_FORGE_CACHE
+@app.post("/api/v1/payments/create-checkout")
+async def create_checkout_session(request: CheckoutRequest):
+    try:
+        price_id = os.getenv("STRIPE_PRICE_SCHOLAR") if request.tier == "pro" else os.getenv("STRIPE_PRICE_VISIONARY")
+        if not price_id or "test" in stripe.api_key: return {"url": "https://janusforge.ai/dashboard?mock_success=true"}
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'], line_items=[{'price': price_id, 'quantity': 1}], mode='subscription',
+            success_url='https://janusforge.ai/dashboard?session_id={CHECKOUT_SESSION_ID}', cancel_url='https://janusforge.ai/dashboard',
+        )
+        return {"url": checkout_session.url}
+    except Exception as e: raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
