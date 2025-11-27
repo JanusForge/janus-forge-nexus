@@ -97,26 +97,32 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
 # --- HELPER: Universal AI Translator ---
 async def ask_model(provider: str, prompt: str, system_role: str = ""):
     try:
+        # GEMINI (Run in Executor)
         if provider == 'gemini' and 'gemini' in clients:
             loop = asyncio.get_event_loop()
-            # Run blocking Gemini call in thread pool
-            response = await loop.run_in_executor(
-                executor, 
-                clients['gemini'].generate_content, 
-                f"{system_role}\n\n{prompt}"
-            )
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                response = await loop.run_in_executor(
+                    executor, 
+                    clients['gemini'].generate_content, 
+                    f"{system_role}\n\n{prompt}"
+                )
             return response.text
         
+        # DEEPSEEK (FIXED: System prompt moved inside messages)
         elif provider == 'deepseek' and 'deepseek' in clients:
             client = clients[provider]
             completion = await client.chat.completions.create(
                 model="deepseek-chat", 
-                messages=[{"role": "user", "content": prompt}], 
-                system=system_role
+                messages=[
+                    {"role": "system", "content": system_role}, # <-- MOVED HERE
+                    {"role": "user", "content": prompt}
+                ]
+                # Removed the invalid 'system=system_role' argument
             )
             return completion.choices[0].message.content
+            
         else:
-            return f"Error: {provider.upper()} API Key Missing or Client Not Init."
+            return f"Error: {provider.upper()} API Key Missing."
     except Exception as e:
         print(f"❌ AI Error ({provider}): {e}")
         return f"Neural Link Failed ({provider})."
