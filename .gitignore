@@ -1,3 +1,6 @@
 Dependenciesnode_modules/pycache/venv/env/
 Secrets (CRITICAL).env.DS_Store*.dbjanus_forge.db
 .vercel
+frontend/build/
+GEMINI_API_KEY=*
+ANTHROPIC_API_KEY=*
