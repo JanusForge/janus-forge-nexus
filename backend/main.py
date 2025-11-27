@@ -19,89 +19,139 @@ from anthropic import AsyncAnthropic
 # --- DATABASE IMPORTS ---
 from database import init_db, get_db, User, verify_password, get_password_hash, SessionLocal
 
-# --- GLOBAL STATE & EXECUTOR ---
+# --- GLOBAL STATE ---
 load_dotenv()
-clients = {} 
-db_initialized = False # NEW: Flag to track DB status
+clients = {}
+db_initialized = False  # Flag to track initialization status
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+
 print("🚀 Starting Janus Forge Nexus Brain...")
 
 app = FastAPI(title="Janus Forge Nexus API")
 
-
-# --- LAZY INITIALIZATION FUNCTIONS (CRITICAL FIX) ---
-
-def init_core_services():
-    """Initializes slow, synchronous tasks (DB, AI clients) on first request."""
-    global clients, db_initialized
+# --- LAZY INITIALIZATION LOGIC ---
+def ensure_initialized():
+    """
+    Initializes DB and AI clients if they haven't been set up yet.
+    This runs on the first request, preventing startup timeouts.
+    """
+    global db_initialized, clients
     
-    # 1. Database and Admin Setup (Only runs once)
+    if db_initialized and clients:
+        return  # Already done
+
+    print("⚡ Lazy Initialization Started...")
+
+    # 1. Database Setup
     if not db_initialized:
         init_db()
         db = SessionLocal()
         try:
             if not db.query(User).filter(User.email == "admin@janus.com").first():
                 print("🆕 Creating Admin User: admin@janus.com / admin123")
-                admin_user = User(email="admin@janus.com", full_name="Janus Admin", hashed_password=get_password_hash("admin123"), tier="visionary")
+                admin_user = User(
+                    email="admin@janus.com",
+                    full_name="Janus Admin",
+                    hashed_password=get_password_hash("admin123"),
+                    tier="visionary"
+                )
                 db.add(admin_user)
                 db.commit()
-            print("✅ Database Setup Complete.")
+            print("✅ Database Ready")
             db_initialized = True
         except Exception as e:
-            print(f"❌ DB Startup Error: {e}")
+            print(f"❌ DB Init Error: {e}")
         finally:
             db.close()
-            
-    # 2. AI Client Setup (Synchronous client init)
+
+    # 2. AI Client Setup
     if not clients:
+        # Gemini
         GEMINI_KEY = os.getenv("GEMINI_API_KEY")
         if GEMINI_KEY:
             genai.configure(api_key=GEMINI_KEY)
-            clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash') 
-            print("✅ Gemini Configured")
-            
-        if os.getenv("DEEPSEEK_API_KEY"):
-            clients['deepseek'] = AsyncOpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/v1")
-            print("✅ DeepSeek Configured")
+            clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash')
+            print("✅ Gemini Ready")
 
-# --- CONFIGURATION (Unchanged) ---
-origins = ["*"] 
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+        # DeepSeek
+        if os.getenv("DEEPSEEK_API_KEY"):
+            clients['deepseek'] = AsyncOpenAI(
+                api_key=os.getenv("DEEPSEEK_API_KEY"), 
+                base_url="https://api.deepseek.com/v1"
+            )
+            print("✅ DeepSeek Ready")
+
+# --- CONFIGURATION ---
+origins = ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Setup Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
 
-# --- HELPER: Universal AI Translator (No change) ---
+# --- HELPER: Universal AI Translator ---
 async def ask_model(provider: str, prompt: str, system_role: str = ""):
-    # We rely on init_core_services running before this is called by a route
     try:
-        # GEMINI (Synchronous SDK Call MUST be run in a separate thread/executor)
         if provider == 'gemini' and 'gemini' in clients:
             loop = asyncio.get_event_loop()
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                response = await loop.run_in_executor(executor, clients['gemini'].generate_content, f"{system_role}\n\n{prompt}")
+            # Run blocking Gemini call in thread pool
+            response = await loop.run_in_executor(
+                executor, 
+                clients['gemini'].generate_content, 
+                f"{system_role}\n\n{prompt}"
+            )
             return response.text
         
-        # DEEPSEEK (Asynchronous SDK Call)
         elif provider == 'deepseek' and 'deepseek' in clients:
             client = clients[provider]
             completion = await client.chat.completions.create(
-                model="deepseek-chat", messages=[{"role": "user", "content": prompt}], system=system_role
+                model="deepseek-chat", 
+                messages=[{"role": "user", "content": prompt}], 
+                system=system_role
             )
             return completion.choices[0].message.content
         else:
-            return f"Error: {provider.upper()} API Key Missing."
+            return f"Error: {provider.upper()} API Key Missing or Client Not Init."
     except Exception as e:
         print(f"❌ AI Error ({provider}): {e}")
         return f"Neural Link Failed ({provider})."
 
-# --- CHAT ROUTE (THE CRITICAL FIX: Runs Initialization) ---
+# --- DATA MODELS ---
+class Message(BaseModel): role: str; content: str; model: Optional[str] = None
+class ChatRequest(BaseModel): message: str; mode: str = "standard"; history: List[Message] = []
+class CheckoutRequest(BaseModel): tier: str
+class LoginSchema(BaseModel): username: str; password: str
+class SignupSchema(BaseModel): email: str; password: str; full_name: str
+
+# --- ROUTES ---
+
+@app.post("/api/v1/auth/signup")
+async def signup(data: SignupSchema, db: Session = Depends(get_db)):
+    ensure_initialized() # Lazy Init
+    existing_user = db.query(User).filter(User.email == data.email).first()
+    if existing_user: raise HTTPException(status_code=400, detail="Email already registered")
+    new_user = User(email=data.email, full_name=data.full_name, hashed_password=get_password_hash(data.password), tier="free")
+    db.add(new_user); db.commit(); db.refresh(new_user)
+    return { "access_token": f"user_{new_user.id}", "token_type": "bearer", "user": { "email": new_user.email, "full_name": new_user.full_name, "tier": new_user.tier } }
+
+@app.post("/api/v1/auth/login")
+async def login(data: LoginSchema, db: Session = Depends(get_db)):
+    ensure_initialized() # Lazy Init
+    user = db.query(User).filter(User.email == data.username).first()
+    if not user or not verify_password(data.password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+    return { "access_token": f"user_{user.id}", "token_type": "bearer", "user": { "email": user.email, "full_name": user.full_name, "tier": user.tier } }
+
 @app.post("/api/v1/chat")
 async def chat_endpoint(request: ChatRequest):
-    # CRITICAL FIX: Run initialization synchronously inside the route on first request
-    if not clients or not db_initialized:
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(executor, init_core_services) 
+    # CRITICAL: Ensure services are ready before processing chat
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(executor, ensure_initialized)
     
     user_input = request.message
     
@@ -125,7 +175,23 @@ async def chat_endpoint(request: ChatRequest):
     ]
         
     return {"messages": response_messages}
-# (Remaining routes and boilerplate omitted for brevity)
+
+@app.get("/api/v1/daily/latest")
+async def get_daily_forge():
+    ensure_initialized()
+    return { "date": datetime.now().strftime("%Y-%m-%d"), "topic": "The Singularity: Threat or Evolution?", "messages": [{"role": "Gemini", "text": "Evolution is inevitable."}, {"role": "DeepSeek", "text": "The threat is who controls the AI."}] }
+
+@app.post("/api/v1/payments/create-checkout")
+async def create_checkout_session(request: CheckoutRequest):
+    try:
+        price_id = os.getenv("STRIPE_PRICE_SCHOLAR") if request.tier == "pro" else os.getenv("STRIPE_PRICE_VISIONARY")
+        if not price_id or "test" in stripe.api_key: return {"url": "https://janusforge.ai/dashboard?mock_success=true"}
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'], line_items=[{'price': price_id, 'quantity': 1}], mode='subscription',
+            success_url='https://janusforge.ai/dashboard?session_id={CHECKOUT_SESSION_ID}', cancel_url='https://janusforge.ai/dashboard',
+        )
+        return {"url": checkout_session.url}
+    except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
