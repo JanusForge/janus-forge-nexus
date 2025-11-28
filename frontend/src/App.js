@@ -89,7 +89,7 @@ function Header({ user, onLogin, onLogout }) {
         }}>
             {/* Left Side: Brand Name (Using standard anchor tag to avoid NavLink active states) */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
-               <a href="/" style={{ textDecoration: 'none', color: 'white', fontSize: '1.2rem', letterSpacing: '2px', fontWeight: 'bold', opacity: 0.9 }}>
+               <a href="/" style={{ textDecoration: 'none', color: 'white', fontSize: '1.5rem', letterSpacing: '2px', fontWeight: 'bold', opacity: 0.9 }}>
                    JANUS FORGE NEXUS<sup style={{fontSize:'0.5em', verticalAlign:'top'}}>®</sup>
                </a>
             </div>
