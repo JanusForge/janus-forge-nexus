@@ -83,10 +83,14 @@ function Header({ user, onLogin, onLogout }) {
 
     return (
         <header className="app-header">
+            {/* Left Side: Brand Name with Registered Trademark */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
-               <NavLink to="/" style={{ textDecoration: 'none', color: 'white', fontSize: '1.2rem', letterSpacing: '2px', fontWeight: 'bold', opacity: 0.8 }}>JANUS FORGE NEXUS</NavLink>
+               <NavLink to="/" style={{ textDecoration: 'none', color: 'white', fontSize: '1.2rem', letterSpacing: '2px', fontWeight: 'bold', opacity: 0.9 }}>
+                   JANUS FORGE NEXUS<sup style={{fontSize:'0.5em', verticalAlign:'top'}}>®</sup>
+               </NavLink>
             </div>
             
+            {/* Right Side: Navigation Menu */}
             <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <NavLink to="/" className={({ isActive }) => isActive ? "btn-nav active" : "btn-nav"}>HOME</NavLink>
                 <NavLink to="/demo" className={({ isActive }) => isActive ? "btn-nav active" : "btn-nav"}>DEMO</NavLink>
