@@ -199,7 +199,11 @@ function AuthModal({ isOpen, onClose, onLogin, requireUpgrade = false }) {
 // --- LIVE CHAT ---
 function LiveChatSection({ onUpgradeTrigger }) {
   const { user } = useAuth();
-  const [messages, setMessages] = useState([{ model: 'THE COUNCIL', content: 'Welcome to the Live Dialectic. Query the Council to begin.' }]);
+  const location = useLocation();
+  const initialMessage = location.state?.topic 
+    ? `System: Entering Daily Forge Debate on "${location.state.topic}". State your position.`
+    : 'Welcome to the Live Dialectic. Query the Council to begin.';
+  const [messages, setMessages] = useState([{ model: 'THE COUNCIL', content: initialMessage }]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [msgCount, setMsgCount] = useState(0);
@@ -306,7 +310,13 @@ function LandingPage({ onEnterNexus }) {
 
                  {/* New Interaction Buttons */}
                  <div style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
-                    <button onClick={() => navigate('/dialectic')} className="btn-upgrade-sm" style={{ marginLeft: 0 }}>JOIN THE DEBATE</button>
+                    <button 
+                      onClick={() => navigate('/dialectic', { state: { topic: daily.topic, context: "daily_forge" } })} 
+                      className="btn-upgrade-sm" 
+                      style={{ marginLeft: 0 }}
+                    >
+                      JOIN THE DEBATE
+                 </button>
                     <button onClick={() => navigate('/archives')} className="btn-nav" style={{ border: '1px solid #444', borderRadius: '4px' }}>ARCHIVES</button>
                  </div>
                </>
