@@ -263,7 +263,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
   const location = useLocation();
   const initialMessage = location.state?.topic 
     ? `System: Entering Daily Forge Debate on "${location.state.topic}". State your position.`
-    : 'Welcome to the Live Dialectic. Query the Council to begin.';-nexus-
+    : 'Welcome to the Live Dialectic. Query the Council to begin.';
   const [messages, setMessages] = useState([{ model: 'THE COUNCIL', content: initialMessage }]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
