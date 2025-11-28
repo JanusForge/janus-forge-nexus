@@ -6,6 +6,7 @@ import api, { sessionService } from './services/api';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './App.css';
 import janusLogoVideo from './janus-logo.mp4'; 
+import { GOLDEN_RECORD } from './data/demos';
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PK || 'pk_test_placeholder'); 
 
@@ -259,7 +260,43 @@ function LandingPage({ onEnterNexus }) {
   );
 }
 
-function DemoPage() { return <div style={{padding:'120px', textAlign:'center'}}><h2>DEMO</h2></div> }
+function DemoPage() {
+    // Use the imported data. Fallback to empty if loading fails.
+    const demoData = GOLDEN_RECORD || { title: "Loading Demo...", messages: [] };
+
+    return (
+        <div style={{paddingTop:'120px', maxWidth:'900px', margin:'0 auto', paddingBottom:'100px', height: '80vh', display: 'flex', flexDirection: 'column'}}>
+            <h2 style={{color:'white', marginBottom:'40px', textAlign:'center'}}>SYSTEM DEMONSTRATION</h2>
+            
+            <div className="glass-panel scrollable-content" style={{padding:'40px', borderRadius:'20px', flex: 1, overflowY: 'auto'}}>
+                <h3 style={{color:'#00f3ff', marginBottom:'20px'}}>{demoData.title}</h3>
+                
+                {demoData.messages.map((msg, i) => (
+                    <div key={i} className="chat-bubble" style={{
+                        marginBottom:'20px',
+                        alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                        background: msg.role === 'user' ? '#1a1a2e' : '#111',
+                        border: msg.role === 'user' ? '1px solid #bc13fe' : '1px solid #333',
+                        width:'fit-content', 
+                        maxWidth:'85%'
+                    }}>
+                        <strong style={{
+                            color: msg.ai_name === 'gemini' ? '#00f3ff' : (msg.ai_name === 'deepseek' ? '#ffaa00' : '#bc13fe'), 
+                            display:'block', 
+                            marginBottom:'5px', 
+                            textTransform:'uppercase',
+                            fontSize: '0.75rem',
+                            letterSpacing: '1px'
+                        }}>
+                            {msg.role === 'user' ? 'GUEST' : msg.ai_name}
+                        </strong>
+                        {msg.content}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
 function Dashboard() { return <div style={{padding:'150px', textAlign:'center'}}><h2>NEXUS DASHBOARD</h2><p>Welcome, Admin.</p></div> }
 function HistoryPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>HISTORY</h2><p>Logs coming soon.</p></div> }
 function DialecticPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>FULL DIALECTIC</h2><LiveChatSection onUpgradeTrigger={()=>{}} /></div> }
