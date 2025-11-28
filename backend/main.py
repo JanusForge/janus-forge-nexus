@@ -1,5 +1,5 @@
 import os
-import random
+import json
 import asyncio
 import httpx
 import concurrent.futures
@@ -11,12 +11,13 @@ from typing import List, Optional
 import stripe
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 
 # --- DRIVERS ---
 import google.generativeai as genai
 
 # --- DATABASE IMPORTS ---
-from database import init_db, get_db, User, verify_password, get_password_hash, SessionLocal
+from database import init_db, get_db, User, Conversation, verify_password, get_password_hash, SessionLocal
 
 # --- GLOBAL STATE ---
 load_dotenv()
@@ -27,7 +28,7 @@ executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 print("🚀 Starting Janus Forge Nexus Brain...")
 app = FastAPI(title="Janus Forge Nexus API")
 
-# --- CONFIGURATION ---
+# --- CONFIG ---
 origins = ["*"]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_placeholder")
@@ -37,7 +38,7 @@ def init_core_services():
     global db_initialized, clients
     if db_initialized and clients: return
 
-    # 1. DB
+    # 1. Database
     if not db_initialized:
         init_db()
         db = SessionLocal()
@@ -56,11 +57,10 @@ def init_core_services():
             genai.configure(api_key=GEMINI_KEY)
             clients['gemini'] = genai.GenerativeModel('gemini-2.0-flash')
 
-# --- AI HELPER (HTTPX for DeepSeek) ---
+# --- AI HELPER ---
 async def ask_model(provider: str, prompt: str, system_role: str = ""):
     try:
         if provider == 'gemini':
-            init_core_services() # Ensure Gemini is ready
             if 'gemini' not in clients: return "Error: Gemini Not Initialized"
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(executor, clients['gemini'].generate_content, f"{system_role}\n\n{prompt}")
@@ -80,8 +80,7 @@ async def ask_model(provider: str, prompt: str, system_role: str = ""):
             
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, headers=headers, json=payload, timeout=60.0)
-                if response.status_code != 200: return f"DeepSeek Error: {response.status_code}"
-                return response.json()['choices'][0]['message']['content']
+                return response.json()['choices'][0]['message']['content'] if response.status_code == 200 else f"DeepSeek Error: {response.status_code}"
         else:
             return f"Error: Provider {provider} not found."
 
@@ -91,7 +90,7 @@ async def ask_model(provider: str, prompt: str, system_role: str = ""):
 
 # --- ROUTES ---
 class Message(BaseModel): role: str; content: str; model: Optional[str] = None
-class ChatRequest(BaseModel): message: str; mode: str = "standard"; history: List[Message] = []
+class ChatRequest(BaseModel): message: str; mode: str = "standard"; history: List[Message] = []; user_email: Optional[str] = None
 class CheckoutRequest(BaseModel): tier: str
 class LoginSchema(BaseModel): username: str; password: str
 class SignupSchema(BaseModel): email: str; password: str; full_name: str
@@ -111,43 +110,31 @@ async def login(data: LoginSchema, db: Session = Depends(get_db)):
     if not user or not verify_password(data.password, user.hashed_password): raise HTTPException(status_code=400, detail="Invalid credentials")
     return {"access_token": f"user_{user.id}", "user": {"email": user.email, "full_name": user.full_name, "tier": user.tier}}
 
+# --- CHAT & HISTORY ---
 @app.post("/api/v1/chat")
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(executor, init_core_services)
     
     user_input = request.message
+    
+    # 1. Get AI Responses
     thesis_prompt = f"You are Gemini. Thesis for: '{user_input}'. <45 words."
     antithesis_prompt = f"You are DeepSeek. Antithesis for: '{user_input}'. <45 words."
     
-    try:
-        results = await asyncio.gather(
-            ask_model('gemini', thesis_prompt),
-            ask_model('deepseek', antithesis_prompt)
-        )
-        return {"messages": [
-            {"role": "ai", "model": "Gemini", "content": results[0]},
-            {"role": "ai", "model": "DeepSeek", "content": results[1]}
-        ]}
-    except Exception as e:
-        return {"messages": [{"role": "ai", "model": "System", "content": f"Error: {str(e)}"}]}
+    results = await asyncio.gather(
+        ask_model('gemini', thesis_prompt),
+        ask_model('deepseek', antithesis_prompt)
+    )
+    
+    ai_msgs = [
+        {"role": "ai", "model": "Gemini", "content": results[0]},
+        {"role": "ai", "model": "DeepSeek", "content": results[1]}
+    ]
 
-@app.get("/api/v1/daily/latest")
-async def get_daily_forge():
-    return {
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "topic": "The Singularity: Threat or Evolution?",
-        "messages": [
-            {"role": "Gemini", "text": "Evolution is inevitable. Merging with synthetic intelligence is the only path to stellar expansion."},
-            {"role": "DeepSeek", "text": "The threat isn't the AI. It's who controls the AI. Centralized singularity is tyranny."},
-        ]
-    }
-
-@app.post("/api/v1/payments/create-checkout")
-async def create_checkout(request: CheckoutRequest):
-    return {"url": "https://janusforge.ai/dashboard?mock_success=true"}
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # 2. Save to History (if user is logged in)
+    if request.user_email:
+        user = db.query(User).filter(User.email == request.user_email).first()
+        if user:
+            # Simple history: User msg + AI responses
+            history_entry = json.dumps([{"role": "user", "content
