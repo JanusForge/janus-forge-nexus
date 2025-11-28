@@ -10,8 +10,8 @@ import janusLogoVideo from './janus-logo.mp4';
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PK || 'pk_test_placeholder'); 
 
 // --- DEMO DATA ---
-const GOLDEN_RECORD = {
-  title: "The Ethics of the Forge: Systemic Integrity vs. Bastardization",
+const GOLDEN_RECORD_DATA = {
+  title: "The Ethics of the Forge",
   messages: [
     { ai_name: "gemini", role: "assistant", content: "Session initiated. The name 'Janus Forge' immediately suggests a powerful intersection of creation and duality." },
     { ai_name: "deepseek", role: "assistant", content: "My position is that the Janus Forge is not a tool for navigating tension, but for leveraging it. The duality is the engine." }
@@ -25,8 +25,10 @@ const GlobalStyles = () => (
     html, body, #root { background-color: #050505; color: #e0e0e0; font-family: 'Inter', sans-serif; margin: 0; min-height: 100vh; overflow-x: hidden; }
     .cyber-grid { position: fixed; top: 0; left: 0; width: 200vw; height: 200vh; background-image: linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px); background-size: 50px 50px; transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px); animation: grid-move 20s linear infinite; pointer-events: none; z-index: -1; }
     @keyframes grid-move { 0% { transform: perspective(500px) rotateX(60deg) translateY(0) translateZ(-200px); } 100% { transform: perspective(500px) rotateX(60deg) translateY(50px) translateZ(-200px); } }
+    @keyframes fade-in-up { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
     
     .hero-title { font-size: 4rem; font-weight: 900; letter-spacing: 8px; line-height: 1.1; background: linear-gradient(to bottom, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 30px rgba(0, 243, 255, 0.3); }
+    .hero-subtitle { font-size: 1.2rem; color: #00f3ff; letter-spacing: 4px; text-transform: uppercase; margin-top: 15px; opacity: 0.9; text-shadow: 0 0 10px rgba(0, 243, 255, 0.5); }
     .veteran-badge { color: #00f3ff; font-size: 0.9rem; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 15px; font-weight: bold; padding: 5px 15px; border: 1px solid rgba(0, 243, 255, 0.3); border-radius: 4px; display: inline-block; background: rgba(0, 243, 255, 0.05); }
     .glass-panel { background: rgba(10, 10, 10, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); transition: all 0.3s ease; }
     .chat-bubble { padding: 15px; border-radius: 12px; margin-bottom: 15px; max-width: 85%; line-height: 1.5; color: #ddd; white-space: pre-wrap; }
@@ -35,12 +37,13 @@ const GlobalStyles = () => (
     .btn-nexus:hover { background: #00f3ff; color: #000; box-shadow: 0 0 30px #00f3ff; }
     .btn-nav { background: transparent; border: none; color: #aaa; font-size: 0.9rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; padding: 10px; transition: color 0.2s; text-decoration: none; }
     .btn-nav:hover { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+    .btn-nav.active { color: #00f3ff; border-bottom: 1px solid #00f3ff; }
     .btn-upgrade-sm { padding: 8px 15px; background: #bc13fe; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem; margin-left: 15px; box-shadow: 0 0 10px rgba(188, 19, 254, 0.3); }
     .btn-pricing { width: 100%; padding: 15px; margin-top: 20px; font-weight: bold; cursor: pointer; border-radius: 8px; border:none; text-transform: uppercase; }
     
     .app-header { position: fixed; top: 0; left: 0; right: 0; height: 80px; padding: 0 40px; display: flex; justify-content: space-between; alignItems: center; background: rgba(0,0,0,0.9); z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
     .app-footer { border-top: 1px solid #222; padding: 40px 20px; text-align: center; font-size: 0.75rem; color: #555; background: #020202; width: 100%; box-sizing: border-box; margin-top: auto; }
-
+    
     .scrollable-content::-webkit-scrollbar { width: 8px; }
     .scrollable-content::-webkit-scrollbar-track { background: #111; }
     .scrollable-content::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
@@ -60,6 +63,21 @@ function ReactorLogo({ size = "150px" }) {
       </div>
     </div>
   );
+}
+
+// --- GLOBAL FOOTER (Defined Early) ---
+function Footer() {
+    return (
+        <footer className="app-footer">
+            <p style={{ marginBottom: '8px', fontWeight: 'bold', color: '#777' }}>&copy; 2025 Janus Forge Accelerators, LLC.</p>
+            <p style={{ marginBottom: '20px' }}>Janus Forge Nexus™ is a property of Janus Forge Accelerators, LLC, a Kentucky Limited Liability Company.</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '15px' }}>
+                <span style={{ cursor: 'pointer', textDecoration: 'none', color: '#444', transition: 'color 0.2s' }}>Privacy Policy</span>
+                <span style={{ cursor: 'pointer', textDecoration: 'none', color: '#444', transition: 'color 0.2s' }}>Terms of Service</span>
+                <span style={{ cursor: 'pointer', textDecoration: 'none', color: '#444', transition: 'color 0.2s' }}>Legal Disclaimer</span>
+            </div>
+        </footer>
+    );
 }
 
 // --- PRICING MODAL (3-TIER) ---
@@ -127,7 +145,6 @@ function PricingModal({ isOpen, onClose }) {
     );
 }
 
-// --- GLOBAL HEADER ---
 function Header({ user, onLogin, onLogout, onUpgrade }) {
     return (
         <header className="app-header">
@@ -144,21 +161,6 @@ function Header({ user, onLogin, onLogout, onUpgrade }) {
                 {user ? <button onClick={onLogout} className="btn-nav" style={{color: '#ff4444'}}>LOGOUT</button> : <button onClick={onLogin} className="btn-nav" style={{color: '#00f3ff'}}>LOGIN</button>}
             </nav>
         </header>
-    );
-}
-
-// --- GLOBAL FOOTER (Restored!) ---
-function Footer() {
-    return (
-        <footer className="app-footer">
-            <p style={{ marginBottom: '8px', fontWeight: 'bold', color: '#777' }}>&copy; 2025 Janus Forge Accelerators, LLC.</p>
-            <p style={{ marginBottom: '20px' }}>Janus Forge Nexus™ is a property of Janus Forge Accelerators, LLC, a Kentucky Limited Liability Company.</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '15px' }}>
-                <span style={{ cursor: 'pointer', textDecoration: 'none', color: '#444', transition: 'color 0.2s' }}>Privacy Policy</span>
-                <span style={{ cursor: 'pointer', textDecoration: 'none', color: '#444', transition: 'color 0.2s' }}>Terms of Service</span>
-                <span style={{ cursor: 'pointer', textDecoration: 'none', color: '#444', transition: 'color 0.2s' }}>Legal Disclaimer</span>
-            </div>
-        </footer>
     );
 }
 
@@ -230,6 +232,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsSending(true);
+    
     try {
       const res = await sessionService.sendMessage(input, "dialectic", []);
       if (res.data && res.data.messages) {
@@ -244,7 +247,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
     <div className="glass-panel" style={{ padding: '40px', borderRadius: '20px', position: 'relative', overflow: 'hidden', minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
       <div style={{ borderBottom: '1px solid #333', paddingBottom: '20px', marginBottom: '30px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h3 style={{ margin: 0, color: '#00f3ff', fontSize: '1.2rem', letterSpacing: '1px' }}>🔴 LIVE DIALECTIC</h3>
-          {!isAdmin && !isLimitReached && <p style={{ fontSize: '0.9rem', color: '#aaa' }}>Remaining: <span style={{ color: msgCount >= MSG_LIMIT ? 'red' : '#00f3ff' }}>{MSG_LIMIT - msgCount}</span></p>}
+          {!isAdmin && !isLimitReached && <p style={{ fontSize: '0.9rem', color: '#aaa' }}>Remaining: <span style={{ color: '#00f3ff', fontWeight: 'bold' }}>{MSG_LIMIT - msgCount}</span></p>}
           {isLimitReached && <p style={{ fontSize: '0.9rem', color: '#bc13fe', fontWeight: 'bold' }}>SESSION LIMIT REACHED</p>}
           {isAdmin && <p style={{ fontSize: '0.9rem', color: '#bc13fe' }}>ADMIN ACCESS GRANTED</p>}
       </div>
@@ -272,6 +275,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
 // --- PAGES ---
 function LandingPage({ onEnterNexus }) {
   const [daily, setDaily] = useState(null);
+  const navigate = useNavigate();
   useEffect(() => { sessionService.getLatestDaily().then(res => setDaily(res.data)).catch(console.error); }, []);
   return (
     <div style={{ paddingTop: '80px', paddingBottom: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -284,17 +288,22 @@ function LandingPage({ onEnterNexus }) {
         </section>
         <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px', marginBottom: '60px' }}>
           <div className="glass-panel" style={{ padding: '40px', borderRadius: '20px' }}>
-             <h3 style={{ margin: '0 0 20px 0', color: '#00f3ff' }}>🔴 LIVE: THE DAILY FORGE</h3>
+             <div style={{ borderBottom: '1px solid #333', paddingBottom: '20px', marginBottom: '30px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+               <h3 style={{ margin: '0', color: '#00f3ff' }}>🔴 LIVE: THE DAILY FORGE</h3>
+               <div style={{textAlign:'right'}}><span style={{ color:'#aaa', fontSize:'0.8rem', display:'block' }}>NEXT TRANSMISSION IN:</span><Countdown /></div>
+             </div>
+             <p style={{ fontSize: '0.9rem', color: '#aaa', fontStyle:'italic', lineHeight:'1.5', marginBottom:'30px' }}>Every 24 hours, our autonomous Scout Agent scans the global datasphere for emerging patterns. It presents the critical vector to The Council for an unscripted, real-time dialectic.</p>
              {daily ? (
                <>
                  <h2 style={{ textAlign: 'center', marginBottom: '30px', fontStyle:'italic' }}>"{daily.topic}"</h2>
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom:'30px' }}>
                    {daily.messages.slice(0, 2).map((msg, idx) => (
                      <div key={idx} className="chat-bubble" style={{ alignSelf: idx % 2 === 0 ? 'flex-start' : 'flex-end', background: idx % 2 === 0 ? '#111' : '#1a1a2e', border: idx % 2 === 0 ? '1px solid #333' : '1px solid #bc13fe', width: '100%' }}>
                        <strong style={{ color: idx % 2 === 0 ? '#00f3ff' : '#bc13fe', display: 'block', marginBottom: '5px' }}>{msg.role}</strong><Typewriter text={msg.text} speed={20} />
                      </div>
                    ))}
                  </div>
+                 <div style={{ textAlign: 'center' }}><button onClick={() => navigate('/dialectic', { state: { topic: daily.topic } })} className="btn-upgrade-sm" style={{ marginLeft: 0 }}>JOIN THE DEBATE</button><button onClick={() => navigate('/archives')} className="btn-nav" style={{ border: '1px solid #444', borderRadius: '4px' }}>ARCHIVES</button></div>
                </>
              ) : <p>Loading...</p>}
           </div>
@@ -305,7 +314,7 @@ function LandingPage({ onEnterNexus }) {
 }
 
 function DemoPage() {
-    const demoData = typeof GOLDEN_RECORD !== 'undefined' ? GOLDEN_RECORD : { title: "Demo Loading...", messages: [] };
+    const demoData = typeof GOLDEN_RECORD_DATA !== 'undefined' ? GOLDEN_RECORD_DATA : { title: "Demo Loading...", messages: [] };
     return (
         <div style={{paddingTop:'120px', maxWidth:'900px', margin:'0 auto', paddingBottom:'100px', height: '80vh', display: 'flex', flexDirection: 'column'}}>
             <h2 style={{color:'white', marginBottom:'40px', textAlign:'center'}}>SYSTEM DEMONSTRATION</h2>
