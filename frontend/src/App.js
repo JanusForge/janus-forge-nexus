@@ -266,7 +266,7 @@ function LandingPage({ onEnterNexus }) {
         <section style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', width: '100%', padding: '20px' }}>
           <div onClick={onEnterNexus} style={{ cursor: 'pointer', marginBottom: '30px' }}><div style={{ width: '350px', height: '350px' }}><ReactorLogo size="100%" /></div></div>
           <div className="veteran-badge">A Veteran Owned American Company</div>
-          <h1 className="hero-title">JANUS FORGE NEXUS<sup style={{fontSize:'0.4em'}}>TM</sup></h1>
+          <h1 className="hero-title">JANUS FORGE NEXUS<sup style={{fontSize:'0.4em', verticalAlign:'top'}}>®</sup></h1>
           <div className="hero-subtitle">Orchestrate the Intelligence</div>
           <button onClick={onEnterNexus} className="btn-nexus" style={{marginTop: '40px'}}>ENTER NEXUS</button>
         </section>
