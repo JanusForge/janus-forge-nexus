@@ -74,19 +74,16 @@ function ReactorLogo({ size = "150px" }) {
 // --- GLOBAL HEADER ---
 function Header({ user, onLogin, onLogout }) {
     const handleUpgrade = async () => {
-        // Removed the alert("Redirecting...") to make it smoother
+        // alert("Redirecting..."); // Comment out the alert to speed it up
         try {
             const res = await sessionService.createCheckout('pro');
+            console.log("Stripe URL:", res.data.url); // Debug log
             if (res.data.url) {
-                window.location.href = res.data.url;
+                window.location.assign(res.data.url); // Use assign for stronger redirect
             } else {
-                console.error("No URL returned from Stripe checkout");
-                alert("Payment Error: No checkout URL received.");
+                alert("Error: No payment URL returned.");
             }
-        } catch (e) { 
-            console.error("Stripe Error:", e);
-            alert("Payment System Error: " + e.message); 
-        }
+        } catch (e) { alert("Payment System Error: " + e.message); }
     };
 
     return (
