@@ -256,43 +256,65 @@ function LiveChatSection({ onUpgradeTrigger }) {
   );
 }
 
-// --- PAGES ---
+// --- LANDING PAGE ---
 function LandingPage({ onEnterNexus }) {
   const [daily, setDaily] = useState(null);
+  const navigate = useNavigate(); // Add this hook for navigation
+
   useEffect(() => { sessionService.getLatestDaily().then(res => setDaily(res.data)).catch(console.error); }, []);
 
   return (
     <div style={{ paddingTop: '80px', paddingBottom: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        
+        {/* HERO SECTION (Unchanged) */}
         <section style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', width: '100%', padding: '20px' }}>
           <div onClick={onEnterNexus} style={{ cursor: 'pointer', marginBottom: '30px' }}><div style={{ width: '350px', height: '350px' }}><ReactorLogo size="100%" /></div></div>
           <div className="veteran-badge">A Veteran Owned American Company</div>
-          <h1 className="hero-title">JANUS FORGE NEXUS<sup style={{fontSize:'0.4em', verticalAlign:'top'}}>®</sup></h1>
+          <h1 className="hero-title">JANUS FORGE NEXUS<sup style={{fontSize:'0.4em'}}>TM</sup></h1>
           <div className="hero-subtitle">Orchestrate the Intelligence</div>
           <button onClick={onEnterNexus} className="btn-nexus" style={{marginTop: '40px'}}>ENTER NEXUS</button>
         </section>
 
+        {/* DAILY FORGE SECTION (Updated) */}
         <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px', marginBottom: '60px' }}>
           <div className="glass-panel" style={{ padding: '40px', borderRadius: '20px' }}>
+             
+             {/* Header & Timer */}
              <div style={{ borderBottom: '1px solid #333', paddingBottom: '20px', marginBottom: '30px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                <h3 style={{ margin: '0', color: '#00f3ff' }}>🔴 LIVE: THE DAILY FORGE</h3>
                <div style={{textAlign:'right'}}><span style={{ color:'#aaa', fontSize:'0.8rem', display:'block' }}>NEXT TRANSMISSION IN:</span><Countdown /></div>
              </div>
-             <p style={{ fontSize: '0.9rem', color: '#aaa', fontStyle:'italic', lineHeight:'1.5', marginBottom:'30px' }}>Every 24 hours, our autonomous Scout Agent scans the global datasphere for emerging patterns. It presents the critical vector to The Council for an unscripted, real-time dialectic.</p>
+
+             {/* New Description Text */}
+             <p style={{ fontSize: '0.9rem', color: '#aaa', fontStyle:'italic', lineHeight:'1.5', marginBottom:'30px' }}>
+               Every 24 hours, our autonomous Scout Agent scans the global datasphere for emerging patterns. It presents the critical vector to The Council for an unscripted, real-time dialectic.
+             </p>
+
+             {/* Content & Buttons */}
              {daily ? (
                <>
                  <h2 style={{ textAlign: 'center', marginBottom: '30px', fontStyle:'italic' }}>"{daily.topic}"</h2>
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                   {daily.messages.map((msg, idx) => (
+                 
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>
+                   {daily.messages.slice(0, 2).map((msg, idx) => (
                      <div key={idx} className="chat-bubble" style={{ alignSelf: idx % 2 === 0 ? 'flex-start' : 'flex-end', background: idx % 2 === 0 ? '#111' : '#1a1a2e', border: idx % 2 === 0 ? '1px solid #333' : '1px solid #bc13fe', width: '100%' }}>
-                       <strong style={{ color: idx % 2 === 0 ? '#00f3ff' : '#bc13fe', display: 'block', marginBottom: '5px' }}>{msg.role}</strong><Typewriter text={msg.text} speed={20} />
+                       <strong style={{ color: idx % 2 === 0 ? '#00f3ff' : '#bc13fe', display: 'block', marginBottom: '5px' }}>{msg.role}</strong>
+                       <Typewriter text={msg.text} speed={20} />
                      </div>
                    ))}
+                 </div>
+
+                 {/* New Interaction Buttons */}
+                 <div style={{ display: 'flex', justifyContent: 'center', gap: '15px' }}>
+                    <button onClick={() => navigate('/dialectic')} className="btn-upgrade-sm" style={{ marginLeft: 0 }}>JOIN THE DEBATE</button>
+                    <button onClick={() => navigate('/archives')} className="btn-nav" style={{ border: '1px solid #444', borderRadius: '4px' }}>ARCHIVES</button>
                  </div>
                </>
              ) : <p>Loading...</p>}
           </div>
         </section>
 
+        {/* FREE CHAT SECTION (Unchanged) */}
         <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px' }}>
             <LiveChatSection onUpgradeTrigger={onEnterNexus} />
         </section>
@@ -321,6 +343,16 @@ function Dashboard() { return <div style={{padding:'150px', textAlign:'center'}}
 function HistoryPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>HISTORY</h2><p>Logs coming soon.</p></div> }
 function DialecticPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>FULL DIALECTIC</h2><LiveChatSection onUpgradeTrigger={()=>{}} /></div> }
 
+function ArchivesPage() {
+    return (
+        <div style={{padding:'120px 20px', maxWidth:'1000px', margin:'0 auto', textAlign:'center'}}>
+            <h2 style={{color:'white'}}>DAILY FORGE ARCHIVES</h2>
+            <p style={{color:'#aaa', marginTop:'20px'}}>Access to past daily transmissions is restricted to Scholar tier and above.</p>
+            <button onClick={() => alert("Redirecting to Stripe...")} className="btn-upgrade-sm" style={{marginTop:'30px'}}>UNLOCK ARCHIVES</button>
+        </div>
+    );
+}
+
 // --- ROUTER ---
 function RoutedAppContent() {
   const { user, login, logout } = useAuth();
@@ -344,6 +376,7 @@ function RoutedAppContent() {
             <Route path="/history" element={user ? <HistoryPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
             <Route path="/dialectic" element={user ? <DialecticPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
             <Route path="/demo" element={<DemoPage />} />
+            <Route path="/archives" element={<ArchivesPage />} />
         </Routes>
       </div>
       <Footer />
