@@ -57,11 +57,12 @@ function ReactorLogo({ size = "150px" }) {
   );
 }
 
-// --- PRICING MODAL (Updated with Custom Tier) ---
+// --- PRICING MODAL (Updated Contact Link) ---
 function PricingModal({ isOpen, onClose }) {
     const handleSubscribe = async (tier) => {
         if (tier === 'custom') {
-            window.location.href = "mailto:sales@janusforge.ai?subject=Inquiry regarding Sovereign Access Tier";
+            // Opens email client in a new tab/window to keep user on the site
+            window.open("mailto:admin@janusforge.ai?subject=Inquiry regarding Sovereign Access Tier", "_blank");
             return;
         }
         try {
