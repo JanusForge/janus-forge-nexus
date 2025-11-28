@@ -4,3 +4,7 @@ Secrets (CRITICAL).env.DS_Store*.dbjanus_forge.db
 frontend/build/
 GEMINI_API_KEY=*
 ANTHROPIC_API_KEY=*
+.env
+.env.production
+backend/secrets.yaml
+*.key
