@@ -57,49 +57,70 @@ function ReactorLogo({ size = "150px" }) {
   );
 }
 
-// --- NEW PRICING MODAL ---
+// --- PRICING MODAL (Updated with Custom Tier) ---
 function PricingModal({ isOpen, onClose }) {
     const handleSubscribe = async (tier) => {
+        if (tier === 'custom') {
+            window.location.href = "mailto:sales@janusforge.ai?subject=Inquiry regarding Sovereign Access Tier";
+            return;
+        }
         try {
             const res = await sessionService.createCheckout(tier);
             if (res.data.url) window.location.href = res.data.url;
+            else alert("Payment Error: No URL");
         } catch (e) { alert("Payment System Error: " + e.message); }
     };
 
     if (!isOpen) return null;
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div className="glass-panel" style={{ padding: '40px', borderRadius: '20px', width: '800px', maxWidth: '90%', textAlign: 'center', border: '1px solid #00f3ff', position:'relative' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto' }}>
+            <div className="glass-panel" style={{ padding: '40px', borderRadius: '20px', width: '1100px', maxWidth: '95%', textAlign: 'center', border: '1px solid #00f3ff', position:'relative', margin:'20px 0' }}>
                 <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', color: '#666', fontSize: '2rem', cursor: 'pointer' }}>&times;</button>
-                <h2 style={{ color: '#fff', marginBottom: '40px' }}>CHOOSE YOUR ACCESS LEVEL</h2>
+                <h2 style={{ color: '#fff', marginBottom: '40px', fontSize:'2rem' }}>CHOOSE YOUR ACCESS LEVEL</h2>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
+                    
                     {/* SCHOLAR */}
-                    <div style={{ background: '#111', padding: '30px', borderRadius: '10px', border: '1px solid #00f3ff' }}>
-                        <h3 style={{ color: '#00f3ff', margin: '0' }}>SCHOLAR</h3>
+                    <div style={{ background: '#111', padding: '30px', borderRadius: '10px', border: '1px solid #00f3ff', display:'flex', flexDirection:'column' }}>
+                        <h3 style={{ color: '#00f3ff', fontSize: '1.5rem', marginBottom: '10px' }}>SCHOLAR</h3>
                         <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '10px 0' }}>$29<span style={{fontSize:'1rem', color:'#aaa'}}>/mo</span></p>
-                        <ul style={{textAlign:'left', color:'#ccc', lineHeight:'1.6', paddingLeft:'20px'}}>
-                            <li>Unlimited Dialectic</li>
-                            <li>Daily Forge Archives</li>
-                            <li>Priority Processing</li>
+                        <ul style={{textAlign:'left', color:'#ccc', marginBottom:'30px', lineHeight:'1.6', flex: 1, listStyle:'none', padding:0}}>
+                            <li style={{marginBottom:'10px'}}>✓ Unlimited Live Dialectic</li>
+                            <li style={{marginBottom:'10px'}}>✓ Daily Forge Archives</li>
+                            <li style={{marginBottom:'10px'}}>✓ Priority Processing</li>
                         </ul>
                         <button onClick={() => handleSubscribe('pro')} className="btn-pricing" style={{ background: '#00f3ff', color: 'black' }}>SELECT SCHOLAR</button>
                     </div>
 
                     {/* VISIONARY */}
-                    <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '10px', border: '1px solid #bc13fe', position:'relative' }}>
-                        <div style={{position:'absolute', top:'-10px', right:'20px', background:'#bc13fe', color:'white', padding:'5px 10px', fontSize:'0.8rem', fontWeight:'bold', borderRadius:'4px'}}>BEST VALUE</div>
-                        <h3 style={{ color: '#bc13fe', margin: '0' }}>VISIONARY</h3>
+                    <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '10px', border: '1px solid #bc13fe', position:'relative', display:'flex', flexDirection:'column' }}>
+                        <div style={{position:'absolute', top:'-12px', right:'20px', background:'#bc13fe', color:'white', padding:'5px 10px', fontSize:'0.8rem', fontWeight:'bold', borderRadius:'4px'}}>BEST VALUE</div>
+                        <h3 style={{ color: '#bc13fe', fontSize: '1.5rem', marginBottom: '10px' }}>VISIONARY</h3>
                         <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '10px 0' }}>$99<span style={{fontSize:'1rem', color:'#aaa'}}>/mo</span></p>
-                        <ul style={{textAlign:'left', color:'#ccc', lineHeight:'1.6', paddingLeft:'20px'}}>
-                            <li>All Scholar Features</li>
-                            <li>Full Council Access</li>
-                            <li>API Key Access</li>
-                            <li>Early Features</li>
+                        <ul style={{textAlign:'left', color:'#ccc', marginBottom:'30px', lineHeight:'1.6', flex: 1, listStyle:'none', padding:0}}>
+                            <li style={{marginBottom:'10px'}}>✓ Everything in Scholar</li>
+                            <li style={{marginBottom:'10px'}}>✓ Full Council Access (Grok, Claude)</li>
+                            <li style={{marginBottom:'10px'}}>✓ API Key Access</li>
+                            <li style={{marginBottom:'10px'}}>✓ Early Feature Access</li>
                         </ul>
                         <button onClick={() => handleSubscribe('enterprise')} className="btn-pricing" style={{ background: '#bc13fe', color: 'white' }}>SELECT VISIONARY</button>
                     </div>
+
+                    {/* SOVEREIGN (CUSTOM) */}
+                    <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '10px', border: '1px solid #ffd700', position:'relative', display:'flex', flexDirection:'column' }}>
+                         <div style={{position:'absolute', top:'-12px', right:'20px', background:'#ffd700', color:'black', padding:'5px 10px', fontSize:'0.8rem', fontWeight:'bold', borderRadius:'4px'}}>INSTITUTIONAL</div>
+                        <h3 style={{ color: '#ffd700', fontSize: '1.5rem', marginBottom: '10px' }}>SOVEREIGN</h3>
+                        <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '10px 0', color:'#fff' }}>CUSTOM</p>
+                        <ul style={{textAlign:'left', color:'#ccc', marginBottom:'30px', lineHeight:'1.6', flex: 1, listStyle:'none', padding:0}}>
+                            <li style={{marginBottom:'10px'}}>✓ Dedicated Infrastructure</li>
+                            <li style={{marginBottom:'10px'}}>✓ Custom AI Model Tuning</li>
+                            <li style={{marginBottom:'10px'}}>✓ Government / Research Compliance</li>
+                            <li style={{marginBottom:'10px'}}>✓ SLA & 24/7 Support</li>
+                        </ul>
+                        <button onClick={() => handleSubscribe('custom')} className="btn-pricing" style={{ background: '#ffd700', color: 'black' }}>CONTACT SALES</button>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -198,4 +219,92 @@ const Typewriter = ({ text, speed = 30 }) => { const [displayedText, setDisplaye
 const Countdown = () => { const [timeLeft, setTimeLeft] = useState(""); useEffect(() => { const timer = setInterval(() => { const now = new Date(); const tomorrow = new Date(now); tomorrow.setUTCHours(6, 0, 0, 0); if (now > tomorrow) tomorrow.setDate(tomorrow.getDate() + 1); const diff = tomorrow - now; const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)); const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); const seconds = Math.floor((diff % (1000 * 60)) / 1000); setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`); }, 1000); return () => clearInterval(timer); }, []); return <span style={{fontFamily:'monospace', color:'#00f3ff', fontWeight:'bold'}}>{timeLeft}</span>; };
 
 function LandingPage({ onEnterNexus }) {
-  const [daily, setDaily] = useState(null
+  const [daily, setDaily] = useState(null);
+  useEffect(() => { sessionService.getLatestDaily().then(res => setDaily(res.data)).catch(console.error); }, []);
+  return (
+    <div style={{ paddingTop: '80px', paddingBottom: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <section style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', width: '100%', padding: '20px' }}>
+          <div onClick={onEnterNexus} style={{ cursor: 'pointer', marginBottom: '30px' }}><div style={{ width: '350px', height: '350px' }}><ReactorLogo size="100%" /></div></div>
+          <div className="veteran-badge">A Veteran Owned American Company</div>
+          <h1 className="hero-title">JANUS FORGE NEXUS<sup style={{fontSize:'0.4em'}}>TM</sup></h1>
+          <div className="hero-subtitle">Orchestrate the Intelligence</div>
+          <button onClick={onEnterNexus} className="btn-nexus" style={{marginTop: '40px'}}>ENTER NEXUS</button>
+        </section>
+        <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px', marginBottom: '60px' }}>
+          <div className="glass-panel" style={{ padding: '40px', borderRadius: '20px' }}>
+             <div style={{ borderBottom: '1px solid #333', paddingBottom: '20px', marginBottom: '30px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+               <h3 style={{ margin: '0', color: '#00f3ff' }}>🔴 LIVE: THE DAILY FORGE</h3>
+               <div style={{textAlign:'right'}}><span style={{ color:'#aaa', fontSize:'0.8rem', display:'block' }}>NEXT TRANSMISSION IN:</span><Countdown /></div>
+             </div>
+             <p style={{ fontSize: '0.9rem', color: '#aaa', fontStyle:'italic', lineHeight:'1.5', marginBottom:'30px' }}>Every 24 hours, our autonomous Scout Agent scans the global datasphere for emerging patterns. It presents the critical vector to The Council for an unscripted, real-time dialectic.</p>
+             {daily ? (
+               <>
+                 <h2 style={{ textAlign: 'center', marginBottom: '30px', fontStyle:'italic' }}>"{daily.topic}"</h2>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                   {daily.messages.map((msg, idx) => (
+                     <div key={idx} className="chat-bubble" style={{ alignSelf: idx % 2 === 0 ? 'flex-start' : 'flex-end', background: idx % 2 === 0 ? '#111' : '#1a1a2e', border: idx % 2 === 0 ? '1px solid #333' : '1px solid #bc13fe', width: '100%' }}>
+                       <strong style={{ color: idx % 2 === 0 ? '#00f3ff' : '#bc13fe', display: 'block', marginBottom: '5px' }}>{msg.role}</strong><Typewriter text={msg.text} speed={20} />
+                     </div>
+                   ))}
+                 </div>
+               </>
+             ) : <p>Loading...</p>}
+          </div>
+        </section>
+        <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px' }}>
+            <LiveChatSection onUpgradeTrigger={onEnterNexus} />
+        </section>
+    </div>
+  );
+}
+
+function DemoPage() { return <div style={{padding:'120px', textAlign:'center'}}><h2>DEMO</h2></div> }
+function Dashboard() { return <div style={{padding:'150px', textAlign:'center'}}><h2>NEXUS DASHBOARD</h2><p>Welcome, Admin.</p></div> }
+function HistoryPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>HISTORY</h2><p>Logs coming soon.</p></div> }
+function DialecticPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>FULL DIALECTIC</h2><LiveChatSection onUpgradeTrigger={()=>{}} /></div> }
+function ArchivesPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>DAILY FORGE ARCHIVES</h2><p>Previous transmissions loading...</p></div> }
+
+// --- ROUTER ---
+function RoutedAppContent() {
+  const { user, login, logout } = useAuth();
+  const navigate = useNavigate();
+  const [showAuth, setShowAuth] = useState(false);
+  const [showPricing, setShowPricing] = useState(false); // New State for Pricing Modal
+  
+  const handleLoginSignup = async (email, password, isSignup, name) => {
+    if (isSignup) await api.post('/api/v1/auth/signup', { email, password, full_name: name });
+    const result = await login(email, password);
+    if (result) { setShowAuth(false); navigate('/dashboard'); }
+  };
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', minHeight:'100vh'}}>
+      <GlobalStyles />
+      <div className="cyber-grid"></div>
+      {/* Header now triggers Pricing Modal */}
+      <Header onLogin={() => setShowAuth(true)} user={user} onLogout={logout} onUpgrade={() => setShowPricing(true)} />
+      
+      <div style={{flex:1}}>
+        <Routes>
+            <Route path="/" element={<LandingPage onEnterNexus={() => setShowAuth(true)} />} />
+            <Route path="/dashboard" element={user ? <Dashboard /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
+            <Route path="/history" element={user ? <HistoryPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
+            <Route path="/dialectic" element={user ? <DialecticPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
+            <Route path="/demo" element={<DemoPage />} />
+            <Route path="/archives" element={<ArchivesPage />} />
+        </Routes>
+      </div>
+      
+      <footer style={{ borderTop: '1px solid #222', padding: '40px 20px', textAlign: 'center', fontSize: '0.75rem', color: '#555', background: '#020202' }}>
+        <p style={{ marginBottom: '8px', fontWeight: 'bold', color: '#777' }}>&copy; 2025 Janus Forge Accelerators, LLC.</p>
+        <p style={{ marginBottom: '20px' }}>Janus Forge Nexus™ is a property of Janus Forge Accelerators, LLC, a Kentucky Limited Liability Company.</p>
+      </footer>
+      
+      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onLogin={handleLoginSignup} />
+      <PricingModal isOpen={showPricing} onClose={() => setShowPricing(false)} />
+    </div>
+  );
+}
+
+function App() { return <AuthProvider><Router><RoutedAppContent /></Router></AuthProvider>; }
+export default App;
