@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Route, Routes, NavLink, useParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, NavLink, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import api, { sessionService } from './services/api';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -9,6 +9,7 @@ import janusLogoVideo from './janus-logo.mp4';
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PK || 'pk_test_placeholder'); 
 
+// --- GLOBAL STYLES ---
 const GlobalStyles = () => (
   <style>
     {`
@@ -28,7 +29,7 @@ const GlobalStyles = () => (
     .btn-nav:hover { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
     .btn-nav.active { color: #00f3ff; border-bottom: 1px solid #00f3ff; }
     .btn-upgrade-sm { padding: 8px 15px; background: #bc13fe; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem; margin-left: 15px; box-shadow: 0 0 10px rgba(188, 19, 254, 0.3); }
-    .app-header { position: fixed; top: 0; left: 0; right: 0; height: 70px; padding: 0 40px; display: flex; justify-content: flex-end; alignItems: center; background: rgba(0,0,0,0.9); z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
+    .app-header { position: fixed; top: 0; left: 0; right: 0; height: 80px; padding: 0 40px; display: flex; justify-content: flex-end; alignItems: center; background: rgba(0,0,0,0.9); z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
     @media (max-width: 768px) { .hero-title { font-size: 2.5rem; letter-spacing: 4px; } .app-header { justify-content: center; padding: 10px; } }
     `}
   </style>
@@ -47,18 +48,22 @@ function ReactorLogo({ size = "150px" }) {
 
 function Header({ user, onLogin, onLogout }) {
     const handleUpgrade = async () => {
-        alert("Contacting Payment Gateway...");
+        alert("Redirecting to Stripe Checkout...");
         try {
             const res = await sessionService.createCheckout('pro');
             if (res.data.url) window.location.href = res.data.url;
-        } catch (e) { alert("Payment System Busy: " + e.message); }
+        } catch (e) { alert("Payment System Error"); }
     };
 
     return (
         <header className="app-header">
+            {/* Left side empty, logo removed */}
             <div style={{ flex: 1 }}></div>
+            
             <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <NavLink to="/" className={({ isActive }) => isActive ? "btn-nav active" : "btn-nav"}>HOME</NavLink>
+                <NavLink to="/demo" className={({ isActive }) => isActive ? "btn-nav active" : "btn-nav"}>DEMO</NavLink>
+                
                 {user && (
                     <>
                         <NavLink to="/dialectic" className={({ isActive }) => isActive ? "btn-nav active" : "btn-nav"}>DIALECTIC</NavLink>
@@ -66,8 +71,14 @@ function Header({ user, onLogin, onLogout }) {
                         <NavLink to="/history" className={({ isActive }) => isActive ? "btn-nav active" : "btn-nav"}>HISTORY</NavLink>
                     </>
                 )}
+
                 <button onClick={handleUpgrade} className="btn-upgrade-sm">UNLOCK FULL ACCESS</button>
-                {user ? <button onClick={onLogout} className="btn-nav" style={{color: '#ff4444'}}>LOGOUT</button> : <button onClick={onLogin} className="btn-nav" style={{color: '#00f3ff'}}>LOGIN</button>}
+                
+                {user ? (
+                    <button onClick={onLogout} className="btn-nav" style={{color: '#ff4444'}}>LOGOUT</button>
+                ) : (
+                    <button onClick={onLogin} className="btn-nav" style={{color: '#00f3ff'}}>LOGIN</button>
+                )}
             </nav>
         </header>
     );
@@ -89,7 +100,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
-    if (msgCount >= MSG_LIMIT) { onUpgradeTrigger(true); return; }
+    if (msgCount >= MSG_LIMIT) { onUpgradeTrigger(); return; }
 
     const userMsg = { role: 'user', content: input, model: user ? user.full_name : 'Guest' };
     setMessages(prev => [...prev, userMsg]);
@@ -98,11 +109,13 @@ function LiveChatSection({ onUpgradeTrigger }) {
     
     try {
       const res = await sessionService.sendMessage(input, "dialectic", []);
-      const aiMsgs = res.data.messages.map(m => ({ role: 'ai', content: m.content, model: m.model }));
-      setMessages(prev => [...prev, ...aiMsgs]);
-      setMsgCount(prev => prev + 1);
+      if (res.data && res.data.messages) {
+        const aiMsgs = res.data.messages.map(m => ({ role: 'ai', content: m.content, model: m.model }));
+        setMessages(prev => [...prev, ...aiMsgs]);
+        setMsgCount(prev => prev + 1);
+      }
     } catch (err) { 
-      setMessages(prev => [...prev, { model: 'System', content: 'Connection Error. Please try again.' }]); 
+      setMessages(prev => [...prev, { model: 'System', content: 'Connection Error.' }]); 
     } finally { setIsSending(false); }
   };
 
@@ -136,7 +149,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
   );
 }
 
-function AuthModal({ isOpen, onClose, onLogin, requireUpgrade = false }) {
+function AuthModal({ isOpen, onClose, onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignup, setIsSignup] = useState(false);
@@ -151,12 +164,11 @@ function AuthModal({ isOpen, onClose, onLogin, requireUpgrade = false }) {
 
   if (!isOpen) return null;
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fade-in-up 0.3s ease-out' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="glass-panel" style={{ padding: '50px', borderRadius: '20px', width: '400px', textAlign: 'center', border: '1px solid #00f3ff' }}>
         <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', color: '#666', fontSize: '2rem', cursor: 'pointer' }}>&times;</button>
         <ReactorLogo size="80px" />
-        {requireUpgrade ? <h2 style={{ color: '#bc13fe', margin: '20px 0' }}>LIMIT REACHED</h2> : <h2 style={{ color: '#00f3ff', margin: '20px 0' }}>{isSignup ? "INITIATE ACCESS" : "VERIFY IDENTITY"}</h2>}
-        
+        <h2 style={{ color: '#00f3ff', margin: '20px 0' }}>{isSignup ? "INITIATE ACCESS" : "VERIFY IDENTITY"}</h2>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {isSignup && <input type="text" placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} />}
           <input type="text" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} />
@@ -180,6 +192,7 @@ function LandingPage({ onEnterNexus }) {
           <div className="veteran-badge">A Veteran Owned American Company</div>
           <h1 className="hero-title">JANUS FORGE NEXUS<sup style={{fontSize:'0.4em'}}>TM</sup></h1>
           <div className="hero-subtitle">Orchestrate the Intelligence</div>
+          {/* CTA triggers Login */}
           <button onClick={onEnterNexus} className="btn-nexus" style={{marginTop: '40px'}}>ENTER NEXUS</button>
         </section>
 
@@ -191,55 +204,4 @@ function LandingPage({ onEnterNexus }) {
                  <h2 style={{ textAlign: 'center', marginBottom: '30px', fontStyle:'italic' }}>"{daily.topic}"</h2>
                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                    {daily.messages.map((msg, idx) => (
-                     <div key={idx} className="chat-bubble" style={{ alignSelf: idx % 2 === 0 ? 'flex-start' : 'flex-end', background: idx % 2 === 0 ? '#111' : '#1a1a2e', border: idx % 2 === 0 ? '1px solid #333' : '1px solid #bc13fe', width: '100%' }}>
-                       <strong style={{ color: idx % 2 === 0 ? '#00f3ff' : '#bc13fe', display: 'block', marginBottom: '5px' }}>{msg.role}</strong>{msg.text}
-                     </div>
-                   ))}
-                 </div>
-               </>
-             ) : <p>Loading...</p>}
-          </div>
-        </section>
-
-        <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px' }}>
-            <LiveChatSection onUpgradeTrigger={onEnterNexus} />
-        </section>
-    </div>
-  );
-}
-
-function Dashboard() { return <div style={{padding:'100px', textAlign:'center'}}><h2>DASHBOARD</h2><p>Welcome, Admin.</p></div> }
-function HistoryPage() { return <div style={{padding:'100px', textAlign:'center'}}><h2>HISTORY</h2><p>Logs coming soon.</p></div> }
-function DialecticPage() { return <div style={{padding:'100px', textAlign:'center'}}><h2>FULL DIALECTIC</h2><LiveChatSection onUpgradeTrigger={()=>{}} /></div> }
-function DemoPage() { return <div style={{padding:'100px', textAlign:'center'}}><h2>DEMO</h2><p>Video here.</p></div> }
-
-function RoutedAppContent() {
-  const { user, login, logout } = useAuth();
-  const navigate = useNavigate();
-  const [showAuth, setShowAuth] = useState(false);
-  
-  const handleLoginSignup = async (email, password, isSignup, name) => {
-    if (isSignup) await api.post('/api/v1/auth/signup', { email, password, full_name: name });
-    const result = await login(email, password);
-    if (result) { setShowAuth(false); navigate('/dashboard'); }
-  };
-
-  return (
-    <>
-      <GlobalStyles />
-      <div className="cyber-grid"></div>
-      <Header onLogin={() => setShowAuth(true)} user={user} onLogout={logout} />
-      <Routes>
-        <Route path="/" element={<LandingPage onEnterNexus={() => setShowAuth(true)} />} />
-        <Route path="/dashboard" element={user ? <Dashboard /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
-        <Route path="/history" element={user ? <HistoryPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
-        <Route path="/dialectic" element={user ? <DialecticPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
-        <Route path="/demo" element={<DemoPage />} />
-      </Routes>
-      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onLogin={handleLoginSignup} />
-    </>
-  );
-}
-
-function App() { return <AuthProvider><Router><RoutedAppContent /></Router></AuthProvider>; }
-export default App;
+                     <div key={idx} className="chat-bubble" style={{ alignSelf: idx % 2 === 0 ? 'flex-start' : 'flex-end', background: idx % 2 === 0 ? '#111'
