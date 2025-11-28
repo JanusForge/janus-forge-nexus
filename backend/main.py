@@ -169,7 +169,33 @@ async def get_daily_forge():
 
 @app.post("/api/v1/payments/create-checkout")
 async def create_checkout(request: CheckoutRequest):
-    return {"url": "https://janusforge.ai/dashboard?mock_success=true"}
+    # Force the live key
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    
+    # HARDCODED PRICE IDs (To guarantee they are found)
+    # Pro ($29)
+    price_scholar = "price_1SVxLeGg8RUnSFObKobkPrcE"
+    # Visionary ($99)
+    price_visionary = "price_1SVxMEGg8RUnSFObB08Qfs7I"
+    
+    target_price = price_scholar if request.tier == 'pro' else price_visionary
+
+    print(f"💳 Initiating Stripe Checkout for {request.tier} using {target_price}")
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{'price': target_price, 'quantity': 1}],
+            mode='subscription',
+            # Ensure these URLs are exactly your domain
+            success_url='https://janusforge.ai/dashboard?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url='https://janusforge.ai/dashboard',
+        )
+        print(f"✅ Checkout URL created: {checkout_session.url}")
+        return {"url": checkout_session.url}
+    except Exception as e:
+        print(f"❌ Stripe Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Stripe Error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
