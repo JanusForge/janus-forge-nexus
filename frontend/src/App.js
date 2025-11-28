@@ -82,12 +82,16 @@ function Header({ user, onLogin, onLogout }) {
     };
 
     return (
-        <header className="app-header">
-            {/* Left Side: Brand Name with Registered Trademark */}
+        <header className="app-header" style={{ 
+            position: 'fixed', top: 0, left: 0, right: 0, height: '80px', 
+            padding: '0 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+            background: 'rgba(0,0,0,0.9)', zIndex: 1000, borderBottom: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' 
+        }}>
+            {/* Left Side: Brand Name (Using standard anchor tag to avoid NavLink active states) */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
-               <NavLink to="/" style={{ textDecoration: 'none', color: 'white', fontSize: '1.2rem', letterSpacing: '2px', fontWeight: 'bold', opacity: 0.9 }}>
+               <a href="/" style={{ textDecoration: 'none', color: 'white', fontSize: '1.2rem', letterSpacing: '2px', fontWeight: 'bold', opacity: 0.9 }}>
                    JANUS FORGE NEXUS<sup style={{fontSize:'0.5em', verticalAlign:'top'}}>®</sup>
-               </NavLink>
+               </a>
             </div>
             
             {/* Right Side: Navigation Menu */}
