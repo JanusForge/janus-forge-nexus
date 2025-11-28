@@ -6,18 +6,10 @@ import api, { sessionService } from './services/api';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './App.css';
 import janusLogoVideo from './janus-logo.mp4'; 
+// Import the full demo data (This is the one we keep!)
 import { GOLDEN_RECORD } from './data/demos';
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PK || 'pk_test_placeholder'); 
-
-// --- DEMO DATA ---
-const GOLDEN_RECORD = {
-  title: "The Ethics of the Forge",
-  messages: [
-    { ai_name: "gemini", role: "assistant", content: "Session initiated. The name 'Janus Forge' immediately suggests a powerful intersection of creation and duality." },
-    { ai_name: "deepseek", role: "assistant", content: "My position is that the Janus Forge is not a tool for navigating tension, but for leveraging it. The duality is the engine." }
-  ]
-};
 
 // --- GLOBAL STYLES ---
 const GlobalStyles = () => (
@@ -26,8 +18,10 @@ const GlobalStyles = () => (
     html, body, #root { background-color: #050505; color: #e0e0e0; font-family: 'Inter', sans-serif; margin: 0; min-height: 100vh; overflow-x: hidden; }
     .cyber-grid { position: fixed; top: 0; left: 0; width: 200vw; height: 200vh; background-image: linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px); background-size: 50px 50px; transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px); animation: grid-move 20s linear infinite; pointer-events: none; z-index: -1; }
     @keyframes grid-move { 0% { transform: perspective(500px) rotateX(60deg) translateY(0) translateZ(-200px); } 100% { transform: perspective(500px) rotateX(60deg) translateY(50px) translateZ(-200px); } }
+    @keyframes fade-in-up { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
     
     .hero-title { font-size: 4rem; font-weight: 900; letter-spacing: 8px; line-height: 1.1; background: linear-gradient(to bottom, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 30px rgba(0, 243, 255, 0.3); }
+    .hero-subtitle { font-size: 1.2rem; color: #00f3ff; letter-spacing: 4px; text-transform: uppercase; margin-top: 15px; opacity: 0.9; text-shadow: 0 0 10px rgba(0, 243, 255, 0.5); }
     .veteran-badge { color: #00f3ff; font-size: 0.9rem; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 15px; font-weight: bold; padding: 5px 15px; border: 1px solid rgba(0, 243, 255, 0.3); border-radius: 4px; display: inline-block; background: rgba(0, 243, 255, 0.05); }
     .glass-panel { background: rgba(10, 10, 10, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); transition: all 0.3s ease; }
     .chat-bubble { padding: 15px; border-radius: 12px; margin-bottom: 15px; max-width: 85%; line-height: 1.5; color: #ddd; }
@@ -36,11 +30,16 @@ const GlobalStyles = () => (
     .btn-nexus:hover { background: #00f3ff; color: #000; box-shadow: 0 0 30px #00f3ff; }
     .btn-nav { background: transparent; border: none; color: #aaa; font-size: 0.9rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; padding: 10px; transition: color 0.2s; text-decoration: none; }
     .btn-nav:hover { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+    .btn-nav.active { color: #00f3ff; border-bottom: 1px solid #00f3ff; }
     .btn-upgrade-sm { padding: 8px 15px; background: #bc13fe; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem; margin-left: 15px; box-shadow: 0 0 10px rgba(188, 19, 254, 0.3); }
     .btn-pricing { width: 100%; padding: 15px; margin-top: 20px; font-weight: bold; cursor: pointer; border-radius: 8px; border:none; text-transform: uppercase; }
     
     .app-header { position: fixed; top: 0; left: 0; right: 0; height: 80px; padding: 0 40px; display: flex; justify-content: space-between; alignItems: center; background: rgba(0,0,0,0.9); z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
     
+    .scrollable-content::-webkit-scrollbar { width: 8px; }
+    .scrollable-content::-webkit-scrollbar-track { background: #111; }
+    .scrollable-content::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
     @media (max-width: 768px) { .hero-title { font-size: 2.5rem; letter-spacing: 4px; } .app-header { justify-content: center; padding: 10px; flex-wrap: wrap; } }
     `}
   </style>
@@ -58,11 +57,10 @@ function ReactorLogo({ size = "150px" }) {
   );
 }
 
-// --- PRICING MODAL (Updated Contact Link) ---
+// --- PRICING MODAL (3-TIER) ---
 function PricingModal({ isOpen, onClose }) {
     const handleSubscribe = async (tier) => {
         if (tier === 'custom') {
-            // Opens email client in a new tab/window to keep user on the site
             window.open("mailto:admin@janusforge.ai?subject=Inquiry regarding Sovereign Access Tier", "_blank");
             return;
         }
@@ -82,7 +80,6 @@ function PricingModal({ isOpen, onClose }) {
                 <h2 style={{ color: '#fff', marginBottom: '40px', fontSize:'2rem' }}>CHOOSE YOUR ACCESS LEVEL</h2>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
-                    
                     {/* SCHOLAR */}
                     <div style={{ background: '#111', padding: '30px', borderRadius: '10px', border: '1px solid #00f3ff', display:'flex', flexDirection:'column' }}>
                         <h3 style={{ color: '#00f3ff', fontSize: '1.5rem', marginBottom: '10px' }}>SCHOLAR</h3>
@@ -94,7 +91,6 @@ function PricingModal({ isOpen, onClose }) {
                         </ul>
                         <button onClick={() => handleSubscribe('pro')} className="btn-pricing" style={{ background: '#00f3ff', color: 'black' }}>SELECT SCHOLAR</button>
                     </div>
-
                     {/* VISIONARY */}
                     <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '10px', border: '1px solid #bc13fe', position:'relative', display:'flex', flexDirection:'column' }}>
                         <div style={{position:'absolute', top:'-12px', right:'20px', background:'#bc13fe', color:'white', padding:'5px 10px', fontSize:'0.8rem', fontWeight:'bold', borderRadius:'4px'}}>BEST VALUE</div>
@@ -108,8 +104,7 @@ function PricingModal({ isOpen, onClose }) {
                         </ul>
                         <button onClick={() => handleSubscribe('enterprise')} className="btn-pricing" style={{ background: '#bc13fe', color: 'white' }}>SELECT VISIONARY</button>
                     </div>
-
-                    {/* SOVEREIGN (CUSTOM) */}
+                    {/* SOVEREIGN */}
                     <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '10px', border: '1px solid #ffd700', position:'relative', display:'flex', flexDirection:'column' }}>
                          <div style={{position:'absolute', top:'-12px', right:'20px', background:'#ffd700', color:'black', padding:'5px 10px', fontSize:'0.8rem', fontWeight:'bold', borderRadius:'4px'}}>INSTITUTIONAL</div>
                         <h3 style={{ color: '#ffd700', fontSize: '1.5rem', marginBottom: '10px' }}>SOVEREIGN</h3>
@@ -122,7 +117,6 @@ function PricingModal({ isOpen, onClose }) {
                         </ul>
                         <button onClick={() => handleSubscribe('custom')} className="btn-pricing" style={{ background: '#ffd700', color: 'black' }}>CONTACT SALES</button>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -133,7 +127,9 @@ function Header({ user, onLogin, onLogout, onUpgrade }) {
     return (
         <header className="app-header">
             <div style={{ display: 'flex', alignItems: 'center' }}>
-               <a href="/" style={{ textDecoration: 'none', color: 'white', fontSize: '1.5rem', letterSpacing: '2px', fontWeight: 'bold', opacity: 0.9 }}>JANUS FORGE NEXUS<sup style={{fontSize:'0.4em', verticalAlign:'top', marginLeft:'2px'}}>®</sup></a>
+               <a href="/" style={{ textDecoration: 'none', color: 'white', fontSize: '1.5rem', letterSpacing: '2px', fontWeight: 'bold', opacity: 0.9 }}>
+                   JANUS FORGE NEXUS<sup style={{fontSize:'0.4em', verticalAlign:'top', marginLeft:'2px'}}>®</sup>
+               </a>
             </div>
             <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <NavLink to="/" className="btn-nav">HOME</NavLink>
@@ -146,6 +142,63 @@ function Header({ user, onLogin, onLogout, onUpgrade }) {
     );
 }
 
+// --- HELPERS ---
+const Typewriter = ({ text, speed = 30 }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  useEffect(() => {
+    let i = 0;
+    const timer = setInterval(() => { setDisplayedText(text.substring(0, i + 1)); i++; if (i === text.length) clearInterval(timer); }, speed);
+    return () => clearInterval(timer);
+  }, [text, speed]);
+  return <span>{displayedText}</span>;
+};
+
+const Countdown = () => {
+  const [timeLeft, setTimeLeft] = useState("");
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setUTCHours(6, 0, 0, 0); // 6 AM UTC reset
+      if (now > tomorrow) tomorrow.setDate(tomorrow.getDate() + 1);
+      const diff = tomorrow - now;
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return <span style={{fontFamily:'monospace', color:'#00f3ff', fontWeight:'bold'}}>{timeLeft}</span>;
+};
+
+// --- AUTH MODAL ---
+function AuthModal({ isOpen, onClose, onLogin, requireUpgrade = false }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignup, setIsSignup] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const handleSubmit = async (e) => { e.preventDefault(); setLoading(true); try { await onLogin(email, password, isSignup, fullName); } catch (err) { alert("Auth Failed: " + err.message); } finally { setLoading(false); } };
+  if (!isOpen) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="glass-panel" style={{ padding: '50px', borderRadius: '20px', width: '400px', textAlign: 'center', border: '1px solid #00f3ff' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', color: '#666', fontSize: '2rem', cursor: 'pointer' }}>&times;</button>
+        <ReactorLogo size="80px" />
+        {requireUpgrade ? <h2 style={{ color: '#bc13fe', margin: '20px 0' }}>LIMIT REACHED</h2> : <h2 style={{ color: '#00f3ff', margin: '20px 0' }}>{isSignup ? "INITIATE ACCESS" : "VERIFY IDENTITY"}</h2>}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          {isSignup && <input type="text" placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} />}
+          <input type="text" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} />
+          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} />
+          <button type="submit" disabled={loading} className="btn-nexus" style={{ width: '100%' }}>{loading ? "PROCESSING..." : (isSignup ? "CREATE ACCOUNT" : "LOG IN")}</button>
+        </form>
+        <div style={{ marginTop: '20px', color: '#888' }}><button onClick={() => setIsSignup(!isSignup)} style={{ background: 'none', border: 'none', color: '#00f3ff', cursor: 'pointer', textDecoration:'underline' }}>{isSignup ? "Log In" : "Request Access"}</button></div>
+      </div>
+    </div>
+  );
+}
+
 // --- LIVE CHAT ---
 function LiveChatSection({ onUpgradeTrigger }) {
   const { user } = useAuth();
@@ -156,7 +209,6 @@ function LiveChatSection({ onUpgradeTrigger }) {
   const messagesEndRef = useRef(null);
   const isAdmin = user && (user.tier === 'visionary' || user.email.includes('admin'));
   const MSG_LIMIT = isAdmin ? 9999 : (user ? 20 : 5);
-  const isLimitReached = msgCount >= MSG_LIMIT;
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -169,7 +221,6 @@ function LiveChatSection({ onUpgradeTrigger }) {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsSending(true);
-    
     try {
       const res = await sessionService.sendMessage(input, "dialectic", []);
       if (res.data && res.data.messages) {
@@ -184,8 +235,8 @@ function LiveChatSection({ onUpgradeTrigger }) {
     <div className="glass-panel" style={{ padding: '40px', borderRadius: '20px', position: 'relative', overflow: 'hidden', minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
       <div style={{ borderBottom: '1px solid #333', paddingBottom: '20px', marginBottom: '30px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h3 style={{ margin: 0, color: '#00f3ff', fontSize: '1.2rem', letterSpacing: '1px' }}>🔴 LIVE DIALECTIC</h3>
-          {!isAdmin && !isLimitReached && <p style={{ fontSize: '0.9rem', color: '#aaa' }}>Remaining: <span style={{ color: '#00f3ff', fontWeight: 'bold' }}>{MSG_LIMIT - msgCount}</span></p>}
-          {isLimitReached && <p style={{ fontSize: '0.9rem', color: '#bc13fe', fontWeight: 'bold' }}>SESSION LIMIT REACHED</p>}
+          {!isAdmin && <p style={{ fontSize: '0.9rem', color: '#aaa' }}>Remaining: <span style={{ color: msgCount >= MSG_LIMIT ? 'red' : '#00f3ff' }}>{MSG_LIMIT - msgCount}</span></p>}
+          {isAdmin && <p style={{ fontSize: '0.9rem', color: '#bc13fe' }}>ADMIN ACCESS GRANTED</p>}
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', paddingRight: '10px', marginBottom: '20px' }}>
         {messages.map((msg, idx) => (
@@ -208,20 +259,10 @@ function LiveChatSection({ onUpgradeTrigger }) {
   );
 }
 
-// --- AUTH MODAL (Unchanged) ---
-function AuthModal({ isOpen, onClose, onLogin, requireUpgrade = false }) {
-  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [isSignup, setIsSignup] = useState(false); const [fullName, setFullName] = useState(''); const [loading, setLoading] = useState(false);
-  const handleSubmit = async (e) => { e.preventDefault(); setLoading(true); try { await onLogin(email, password, isSignup, fullName); } catch (err) { alert("Auth Failed: " + err.message); } finally { setLoading(false); } };
-  if (!isOpen) return null;
-  return ( <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}> <div className="glass-panel" style={{ padding: '50px', borderRadius: '20px', width: '400px', textAlign: 'center', border: '1px solid #00f3ff' }}> <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', color: '#666', fontSize: '2rem', cursor: 'pointer' }}>&times;</button> <ReactorLogo size="80px" /> <h2 style={{ color: '#00f3ff', margin: '20px 0' }}>{isSignup ? "INITIATE ACCESS" : "VERIFY IDENTITY"}</h2> <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}> {isSignup && <input type="text" placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} />} <input type="text" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} /> <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} /> <button type="submit" disabled={loading} className="btn-nexus" style={{ width: '100%' }}>{loading ? "PROCESSING..." : (isSignup ? "CREATE ACCOUNT" : "LOG IN")}</button> </form> <div style={{ marginTop: '20px', color: '#888' }}><button onClick={() => setIsSignup(!isSignup)} style={{ background: 'none', border: 'none', color: '#00f3ff', cursor: 'pointer', textDecoration:'underline' }}>{isSignup ? "Log In" : "Request Access"}</button></div> </div> </div> );
-}
-
-// --- PAGES (Landing, Dashboard, Demo, History, Archives unchanged from previous) ---
-const Typewriter = ({ text, speed = 30 }) => { const [displayedText, setDisplayedText] = useState(''); useEffect(() => { let i = 0; const timer = setInterval(() => { setDisplayedText(text.substring(0, i + 1)); i++; if (i === text.length) clearInterval(timer); }, speed); return () => clearInterval(timer); }, [text, speed]); return <span>{displayedText}</span>; };
-const Countdown = () => { const [timeLeft, setTimeLeft] = useState(""); useEffect(() => { const timer = setInterval(() => { const now = new Date(); const tomorrow = new Date(now); tomorrow.setUTCHours(6, 0, 0, 0); if (now > tomorrow) tomorrow.setDate(tomorrow.getDate() + 1); const diff = tomorrow - now; const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)); const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); const seconds = Math.floor((diff % (1000 * 60)) / 1000); setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`); }, 1000); return () => clearInterval(timer); }, []); return <span style={{fontFamily:'monospace', color:'#00f3ff', fontWeight:'bold'}}>{timeLeft}</span>; };
-
+// --- PAGES ---
 function LandingPage({ onEnterNexus }) {
   const [daily, setDaily] = useState(null);
+  const navigate = useNavigate();
   useEffect(() => { sessionService.getLatestDaily().then(res => setDaily(res.data)).catch(console.error); }, []);
   return (
     <div style={{ paddingTop: '80px', paddingBottom: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -242,54 +283,33 @@ function LandingPage({ onEnterNexus }) {
              {daily ? (
                <>
                  <h2 style={{ textAlign: 'center', marginBottom: '30px', fontStyle:'italic' }}>"{daily.topic}"</h2>
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                   {daily.messages.map((msg, idx) => (
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom:'30px' }}>
+                   {daily.messages.slice(0, 2).map((msg, idx) => (
                      <div key={idx} className="chat-bubble" style={{ alignSelf: idx % 2 === 0 ? 'flex-start' : 'flex-end', background: idx % 2 === 0 ? '#111' : '#1a1a2e', border: idx % 2 === 0 ? '1px solid #333' : '1px solid #bc13fe', width: '100%' }}>
                        <strong style={{ color: idx % 2 === 0 ? '#00f3ff' : '#bc13fe', display: 'block', marginBottom: '5px' }}>{msg.role}</strong><Typewriter text={msg.text} speed={20} />
                      </div>
                    ))}
                  </div>
+                 <div style={{ textAlign: 'center' }}><button onClick={() => navigate('/dialectic', { state: { topic: daily.topic } })} className="btn-upgrade-sm" style={{ marginLeft: 0 }}>JOIN THE DEBATE</button><button onClick={() => navigate('/archives')} className="btn-nav" style={{ border: '1px solid #444', borderRadius: '4px' }}>ARCHIVES</button></div>
                </>
              ) : <p>Loading...</p>}
           </div>
         </section>
-        <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px' }}>
-            <LiveChatSection onUpgradeTrigger={onEnterNexus} />
-        </section>
+        <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px' }}><LiveChatSection onUpgradeTrigger={onEnterNexus} /></section>
     </div>
   );
 }
 
 function DemoPage() {
-    // Use the imported data. Fallback to empty if loading fails.
-    const demoData = GOLDEN_RECORD || { title: "Loading Demo...", messages: [] };
-
+    const demoData = GOLDEN_RECORD || { title: "Loading...", messages: [] };
     return (
         <div style={{paddingTop:'120px', maxWidth:'900px', margin:'0 auto', paddingBottom:'100px', height: '80vh', display: 'flex', flexDirection: 'column'}}>
             <h2 style={{color:'white', marginBottom:'40px', textAlign:'center'}}>SYSTEM DEMONSTRATION</h2>
-            
             <div className="glass-panel scrollable-content" style={{padding:'40px', borderRadius:'20px', flex: 1, overflowY: 'auto'}}>
                 <h3 style={{color:'#00f3ff', marginBottom:'20px'}}>{demoData.title}</h3>
-                
                 {demoData.messages.map((msg, i) => (
-                    <div key={i} className="chat-bubble" style={{
-                        marginBottom:'20px',
-                        alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                        background: msg.role === 'user' ? '#1a1a2e' : '#111',
-                        border: msg.role === 'user' ? '1px solid #bc13fe' : '1px solid #333',
-                        width:'fit-content', 
-                        maxWidth:'85%'
-                    }}>
-                        <strong style={{
-                            color: msg.ai_name === 'gemini' ? '#00f3ff' : (msg.ai_name === 'deepseek' ? '#ffaa00' : '#bc13fe'), 
-                            display:'block', 
-                            marginBottom:'5px', 
-                            textTransform:'uppercase',
-                            fontSize: '0.75rem',
-                            letterSpacing: '1px'
-                        }}>
-                            {msg.role === 'user' ? 'GUEST' : msg.ai_name}
-                        </strong>
+                    <div key={i} className="chat-bubble" style={{ marginBottom:'20px', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', background: msg.role === 'user' ? '#1a1a2e' : '#111', border: msg.role === 'user' ? '1px solid #bc13fe' : '1px solid #333', width:'fit-content', maxWidth:'85%' }}>
+                        <strong style={{color: msg.ai_name === 'gemini' ? '#00f3ff' : (msg.ai_name === 'deepseek' ? '#ffaa00' : '#bc13fe'), display:'block', marginBottom:'5px', textTransform:'uppercase'}}>{msg.role === 'user' ? 'GUEST' : msg.ai_name}</strong>
                         {msg.content}
                     </div>
                 ))}
@@ -297,51 +317,45 @@ function DemoPage() {
         </div>
     );
 }
-function Dashboard() { return <div style={{padding:'150px', textAlign:'center'}}><h2>NEXUS DASHBOARD</h2><p>Welcome, Admin.</p></div> }
+
+function Dashboard() { return <div style={{padding:'150px', textAlign:'center'}}><h2>NEXUS DASHBOARD</h2><p>Welcome, Admin. Systems Operational.</p></div> }
 function HistoryPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>HISTORY</h2><p>Logs coming soon.</p></div> }
 function DialecticPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>FULL DIALECTIC</h2><LiveChatSection onUpgradeTrigger={()=>{}} /></div> }
 function ArchivesPage() { return <div style={{padding:'150px', textAlign:'center'}}><h2>DAILY FORGE ARCHIVES</h2><p>Previous transmissions loading...</p></div> }
 
 // --- ROUTER ---
 function RoutedAppContent() {
-  const { user, login, logout } = useAuth();
-  const navigate = useNavigate();
-  const [showAuth, setShowAuth] = useState(false);
-  const [showPricing, setShowPricing] = useState(false); // New State for Pricing Modal
-  
-  const handleLoginSignup = async (email, password, isSignup, name) => {
-    if (isSignup) await api.post('/api/v1/auth/signup', { email, password, full_name: name });
-    const result = await login(email, password);
-    if (result) { setShowAuth(false); navigate('/dashboard'); }
-  };
+  const { user, login, logout } = useAuth();
+  const navigate = useNavigate();
+  const [showAuth, setShowAuth] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
+  
+  const handleLoginSignup = async (email, password, isSignup, name) => {
+    if (isSignup) await api.post('/api/v1/auth/signup', { email, password, full_name: name });
+    const result = await login(email, password);
+    if (result) { setShowAuth(false); navigate('/dashboard'); }
+  };
 
-  return (
-    <div style={{display:'flex', flexDirection:'column', minHeight:'100vh'}}>
-      <GlobalStyles />
-      <div className="cyber-grid"></div>
-      {/* Header now triggers Pricing Modal */}
-      <Header onLogin={() => setShowAuth(true)} user={user} onLogout={logout} onUpgrade={() => setShowPricing(true)} />
-      
-      <div style={{flex:1}}>
-        <Routes>
-            <Route path="/" element={<LandingPage onEnterNexus={() => setShowAuth(true)} />} />
-            <Route path="/dashboard" element={user ? <Dashboard /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
-            <Route path="/history" element={user ? <HistoryPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
-            <Route path="/dialectic" element={user ? <DialecticPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
-            <Route path="/demo" element={<DemoPage />} />
-            <Route path="/archives" element={<ArchivesPage />} />
-        </Routes>
-      </div>
-      
-      <footer style={{ borderTop: '1px solid #222', padding: '40px 20px', textAlign: 'center', fontSize: '0.75rem', color: '#555', background: '#020202' }}>
-        <p style={{ marginBottom: '8px', fontWeight: 'bold', color: '#777' }}>&copy; 2025 Janus Forge Accelerators, LLC.</p>
-        <p style={{ marginBottom: '20px' }}>Janus Forge Nexus™ is a property of Janus Forge Accelerators, LLC, a Kentucky Limited Liability Company.</p>
-      </footer>
-      
-      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onLogin={handleLoginSignup} />
-      <PricingModal isOpen={showPricing} onClose={() => setShowPricing(false)} />
-    </div>
-  );
+  return (
+    <div style={{display:'flex', flexDirection:'column', minHeight:'100vh'}}>
+      <GlobalStyles />
+      <div className="cyber-grid"></div>
+      <Header onLogin={() => setShowAuth(true)} user={user} onLogout={logout} onUpgrade={() => setShowPricing(true)} />
+      <div style={{flex:1}}>
+        <Routes>
+            <Route path="/" element={<LandingPage onEnterNexus={() => setShowAuth(true)} />} />
+            <Route path="/dashboard" element={user ? <Dashboard /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
+            <Route path="/history" element={user ? <HistoryPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
+            <Route path="/dialectic" element={user ? <DialecticPage /> : <LandingPage onEnterNexus={() => setShowAuth(true)} />} />
+            <Route path="/demo" element={<DemoPage />} />
+            <Route path="/archives" element={<ArchivesPage />} />
+        </Routes>
+      </div>
+      <Footer />
+      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onLogin={handleLoginSignup} />
+      <PricingModal isOpen={showPricing} onClose={() => setShowPricing(false)} />
+    </div>
+  );
 }
 
 function App() { return <AuthProvider><Router><RoutedAppContent /></Router></AuthProvider>; }
