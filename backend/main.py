@@ -43,9 +43,9 @@ def init_core_services():
         try:
             init_db()
             db = SessionLocal()
-            if not db.query(User).filter(User.email == "admin@janus.com").first():
-                print("🆕 Creating Admin User: admin@janus.com / admin123")
-                admin_user = User(email="admin@janus.com", full_name="Janus Admin", hashed_password=get_password_hash("admin123"), tier="visionary")
+            if not db.query(User).filter(User.email == "admin@janusforge.ai").first():
+                print("🆕 Creating Admin User: admin@janusforge.ai / Cassielw2050*bound")
+                admin_user = User(email="admin@janusforge.ai", full_name="Cassandra Williamson (founder)", hashed_password=get_password_hash("admin123"), tier="visionary")
                 db.add(admin_user)
                 db.commit()
             print("✅ Database Ready")
