@@ -74,11 +74,19 @@ function ReactorLogo({ size = "150px" }) {
 // --- GLOBAL HEADER ---
 function Header({ user, onLogin, onLogout }) {
     const handleUpgrade = async () => {
-        alert("Redirecting to Stripe Checkout...");
+        // Removed the alert("Redirecting...") to make it smoother
         try {
             const res = await sessionService.createCheckout('pro');
-            if (res.data.url) window.location.href = res.data.url;
-        } catch (e) { alert("Payment System Error"); }
+            if (res.data.url) {
+                window.location.href = res.data.url;
+            } else {
+                console.error("No URL returned from Stripe checkout");
+                alert("Payment Error: No checkout URL received.");
+            }
+        } catch (e) { 
+            console.error("Stripe Error:", e);
+            alert("Payment System Error: " + e.message); 
+        }
     };
 
     return (
@@ -168,7 +176,7 @@ const Countdown = () => {
   return <span style={{fontFamily:'monospace', color:'#00f3ff', fontWeight:'bold'}}>{timeLeft}</span>;
 };
 
-// --- AUTH MODAL ---
+// --- AUTH MODAL (Fixed Toggle) ---
 function AuthModal({ isOpen, onClose, onLogin, requireUpgrade = false }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -176,21 +184,74 @@ function AuthModal({ isOpen, onClose, onLogin, requireUpgrade = false }) {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => { e.preventDefault(); setLoading(true); try { await onLogin(email, password, isSignup, fullName); } catch (err) { alert("Auth Failed: " + err.message); } finally { setLoading(false); } };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      // Pass the isSignup flag to the handler
+      await onLogin(email, password, isSignup, fullName);
+    } catch (err) {
+      alert("Authentication Failed: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="glass-panel" style={{ padding: '50px', borderRadius: '20px', width: '400px', textAlign: 'center', border: '1px solid #00f3ff' }}>
         <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', color: '#666', fontSize: '2rem', cursor: 'pointer' }}>&times;</button>
         <ReactorLogo size="80px" />
-        {requireUpgrade ? <h2 style={{ color: '#bc13fe', margin: '20px 0' }}>LIMIT REACHED</h2> : <h2 style={{ color: '#00f3ff', margin: '20px 0' }}>{isSignup ? "INITIATE ACCESS" : "VERIFY IDENTITY"}</h2>}
+        
+        {requireUpgrade ? (
+            <div style={{marginBottom:'20px'}}>
+                <h2 style={{ color: '#bc13fe', margin: '10px 0', letterSpacing: '1px' }}>LIMIT REACHED</h2>
+                <p style={{color:'#aaa', fontSize:'0.9rem'}}>Log in to upgrade your clearance level.</p>
+            </div>
+        ) : (
+            <h2 style={{ color: '#00f3ff', margin: '30px 0 10px 0', letterSpacing: '2px' }}>{isSignup ? "INITIATE ACCESS" : "VERIFY IDENTITY"}</h2>
+        )}
+        
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          {isSignup && <input type="text" placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} />}
-          <input type="text" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} />
-          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px' }} />
-          <button type="submit" disabled={loading} className="btn-nexus" style={{ width: '100%' }}>{loading ? "PROCESSING..." : (isSignup ? "CREATE ACCOUNT" : "LOG IN")}</button>
+          {isSignup && (
+            <input 
+              type="text" 
+              placeholder="Full Name" 
+              value={fullName} 
+              onChange={(e) => setFullName(e.target.value)} 
+              style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px', fontSize: '1rem' }} 
+              required 
+            />
+          )}
+          <input 
+            type="text" 
+            placeholder="Email / ID" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px', fontSize: '1rem' }} 
+            required
+          />
+          <input 
+            type="password" 
+            placeholder="Access Code" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            style={{ padding: '15px', background: '#111', border: '1px solid #333', color: 'white', borderRadius: '6px', fontSize: '1rem' }} 
+            required
+          />
+          <button type="submit" disabled={loading} className="btn-nexus" style={{ width: '100%', marginTop: '15px', background: '#00f3ff', color: 'black' }}>
+            {loading ? "PROCESSING..." : (isSignup ? "CREATE ACCOUNT" : "LOG IN")}
+          </button>
         </form>
-        <div style={{ marginTop: '20px', color: '#888' }}><button onClick={() => setIsSignup(!isSignup)} style={{ background: 'none', border: 'none', color: '#00f3ff', cursor: 'pointer', textDecoration:'underline' }}>{isSignup ? "Log In" : "Request Access"}</button></div>
+
+        <div style={{ marginTop: '20px', fontSize: '0.9rem', color: '#888' }}>
+          {isSignup ? "Already have clearance? " : "Need clearance? "}
+          <button onClick={() => setIsSignup(!isSignup)} style={{ background: 'none', border: 'none', color: '#00f3ff', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}>
+            {isSignup ? "Log In" : "Request Access"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -202,7 +263,7 @@ function LiveChatSection({ onUpgradeTrigger }) {
   const location = useLocation();
   const initialMessage = location.state?.topic 
     ? `System: Entering Daily Forge Debate on "${location.state.topic}". State your position.`
-    : 'Welcome to the Live Dialectic. Query the Council to begin.';
+    : 'Welcome to the Live Dialectic. Query the Council to begin.';-nexus-
   const [messages, setMessages] = useState([{ model: 'THE COUNCIL', content: initialMessage }]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
