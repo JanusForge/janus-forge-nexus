@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Points to your running FastAPI server
-const API_URL = ""; 
+ const API_URL = process.env.REACT_APP_API_URL || "https://janus-forge-nexus-api-82338337346.us-central1.run.app";
 
 const api = axios.create({
   baseURL: API_URL,
