@@ -248,9 +248,11 @@ function LiveChatSection({ onUpgradeTrigger }) {
   );
 }
 
-// --- PAGES ---
+// --- LANDING PAGE ---
 function LandingPage({ onEnterNexus }) {
   const [daily, setDaily] = useState(null);
+  const navigate = useNavigate(); // We need this for the new button
+  
   useEffect(() => { sessionService.getLatestDaily().then(res => setDaily(res.data)).catch(console.error); }, []);
 
   return (
@@ -265,21 +267,30 @@ function LandingPage({ onEnterNexus }) {
 
         <section style={{ width: '100%', maxWidth: '900px', padding: '0 20px', marginBottom: '60px' }}>
           <div className="glass-panel" style={{ padding: '40px', borderRadius: '20px' }}>
-             <div style={{ borderBottom: '1px solid #333', paddingBottom: '20px', marginBottom: '30px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-               <h3 style={{ margin: '0', color: '#00f3ff' }}>🔴 LIVE: THE DAILY FORGE</h3>
-               <div style={{textAlign:'right'}}><span style={{ color:'#aaa', fontSize:'0.8rem', display:'block' }}>NEXT TRANSMISSION IN:</span><Countdown /></div>
-             </div>
-             <p style={{ fontSize: '0.9rem', color: '#aaa', fontStyle:'italic', lineHeight:'1.5', marginBottom:'30px' }}>Every 24 hours, our autonomous Scout Agent scans the global datasphere for emerging patterns. It presents the critical vector to The Council for an unscripted, real-time dialectic.</p>
+             <h3 style={{ margin: '0 0 20px 0', color: '#00f3ff' }}>🔴 THE DAILY FORGE</h3>
              {daily ? (
                <>
                  <h2 style={{ textAlign: 'center', marginBottom: '30px', fontStyle:'italic' }}>"{daily.topic}"</h2>
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                   {daily.messages.map((msg, idx) => (
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>
+                   {/* Show first 2 messages as teaser */}
+                   {daily.messages.slice(0, 2).map((msg, idx) => (
                      <div key={idx} className="chat-bubble" style={{ alignSelf: idx % 2 === 0 ? 'flex-start' : 'flex-end', background: idx % 2 === 0 ? '#111' : '#1a1a2e', border: idx % 2 === 0 ? '1px solid #333' : '1px solid #bc13fe', width: '100%' }}>
-                       <strong style={{ color: idx % 2 === 0 ? '#00f3ff' : '#bc13fe', display: 'block', marginBottom: '5px' }}>{msg.role}</strong><Typewriter text={msg.text} speed={20} />
+                       <strong style={{ color: idx % 2 === 0 ? '#00f3ff' : '#bc13fe', display: 'block', marginBottom: '5px' }}>{msg.role}</strong>{msg.text}
                      </div>
                    ))}
                  </div>
+                 
+                 {/* RESTORED CTA BUTTON */}
+                 <div style={{ textAlign: 'center' }}>
+                    <button 
+                        onClick={() => navigate('/dialectic')} 
+                        className="btn-nexus" 
+                        style={{ fontSize: '0.9rem', padding: '12px 30px', borderColor: '#bc13fe', color: '#bc13fe' }}
+                    >
+                        VIEW FULL DISCUSSION
+                    </button>
+                 </div>
+
                </>
              ) : <p>Loading...</p>}
           </div>
